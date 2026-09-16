@@ -1,0 +1,19 @@
+{
+  "name": "Gestor de Finanzas Personal",
+  "short_name": "Finanzas",
+  "description": "Control y registro de gastos personales con interfaz Apple iOS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#177A5B",
+  "lang": "es-CO",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%23177A5B'/><path d='M256 120v272M180 200h152c22 0 40 18 40 40s-18 40-40 40H180c-22 0-40 18-40 40s18 40 40 40h152' stroke='white' stroke-width='40' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
