@@ -704,7 +704,7 @@ body {
   display: none;
 }
 
-.merchant-chip {
+.merchant-chip, .income-source-chip {
   background: transparent;
   color: var(--ios-blue);
   border: 1px solid var(--ios-blue);
@@ -716,19 +716,19 @@ body {
   cursor: pointer;
 }
 
-.merchant-chip:active {
+.merchant-chip:active, .income-source-chip:active {
   background: var(--ios-blue);
   color: #FFF;
 }
 
-.category-grid, .payment-grid {
+.category-grid, .payment-grid, .account-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 6px;
 }
 
-.cat-pill, .pay-pill {
+.cat-pill, .pay-pill, .account-pill {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid transparent;
@@ -744,15 +744,35 @@ body {
   min-height: 46px; /* 44px min touch target per Apple HIG */
 }
 
-.cat-pill.active, .pay-pill.active {
+.cat-pill.active, .pay-pill.active, .account-pill.active {
   background: var(--accent-color);
   color: #FFFFFF;
   border-color: var(--accent-color);
   box-shadow: 0 3px 10px rgba(23, 122, 91, 0.35);
 }
 
-.cat-pill:active, .pay-pill:active {
+.cat-pill:active, .pay-pill:active, .account-pill:active {
   transform: scale(0.96);
+}
+
+[hidden] { display: none !important; }
+
+.income-source-chip {
+  background: transparent;
+  color: var(--ios-green);
+  border: 1px solid var(--ios-green);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.account-pill.active {
+  background: var(--ios-green);
+  border-color: var(--ios-green);
+  box-shadow: 0 3px 10px rgba(52, 199, 89, .28);
 }
 
 .btn-save-record {

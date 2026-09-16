@@ -88,11 +88,21 @@
     // Form
     formAmount: document.getElementById('form-amount'),
     formConcept: document.getElementById('form-concept'),
+    formConceptLabel: document.getElementById('form-concept-label'),
     formNote: document.getElementById('form-note'),
+    formNoteLabel: document.getElementById('form-note-label'),
     btnSubmitExpense: document.getElementById('btn-submit-expense'),
+    btnSubmitText: document.querySelector('#btn-submit-expense .btn-text'),
     typeSegments: document.querySelectorAll('.segment-btn'),
     quickAmtBtns: document.querySelectorAll('.quick-amt-btn'),
     merchantChips: document.querySelectorAll('.merchant-chip'),
+    expenseConceptChips: document.getElementById('expense-concept-chips'),
+    incomeSourceChips: document.getElementById('income-source-chips'),
+    incomeSourceButtons: document.querySelectorAll('.income-source-chip'),
+    expenseCategoryBlock: document.getElementById('expense-category-block'),
+    expensePaymentBlock: document.getElementById('expense-payment-block'),
+    incomeAccountBlock: document.getElementById('income-account-block'),
+    accountPills: document.querySelectorAll('.account-pill'),
     catPills: document.querySelectorAll('.cat-pill'),
     payPills: document.querySelectorAll('.pay-pill'),
 
@@ -106,7 +116,9 @@
     modalConcept: document.getElementById('modal-concept'),
     modalAmount: document.getElementById('modal-amount'),
     modalDatetime: document.getElementById('modal-datetime'),
+    modalCategoryLabel: document.getElementById('modal-category-label'),
     modalCategory: document.getElementById('modal-category'),
+    modalPaymentLabel: document.getElementById('modal-payment-label'),
     modalPayment: document.getElementById('modal-payment'),
     modalNote: document.getElementById('modal-note'),
     modalId: document.getElementById('modal-id'),
@@ -275,7 +287,7 @@
     const titles = {
       'tab-inicio': 'Mis Finanzas',
       'tab-movimientos': 'Movimientos',
-      'tab-agregar': 'Nuevo Gasto',
+      'tab-agregar': state.formData.tipo === 'Ingreso' ? 'Nuevo Ingreso' : 'Nuevo Gasto',
       'tab-graficas': 'Análisis'
     };
     els.headerTitle.textContent = titles[targetId] || 'Mis Finanzas';
@@ -335,12 +347,17 @@
   }
 
   function createTransactionRow(tx) {
-    const meta = CATEGORY_META[tx.categoria] || { icon: '📦', color: '#8E8E93' };
+    const isExpense = tx.tipo !== 'Ingreso';
+    const meta = isExpense
+      ? (CATEGORY_META[tx.categoria] || { icon: '📦', color: '#8E8E93' })
+      : { icon: '↗', color: '#34C759' };
     const row = document.createElement('div');
     row.className = 'tx-row-item';
-    const isExpense = tx.tipo !== 'Ingreso';
     const sign = isExpense ? '-' : '+';
     const amountClass = isExpense ? 'is-expense' : 'is-income';
+    const secondary = isExpense
+      ? `${tx.categoria || 'Otros'} • ${tx.medioPago || 'Sin medio'}`
+      : `Ingreso • ${tx.cuenta || 'Cuenta principal'}`;
 
     row.innerHTML = `
       <div class="tx-left">
@@ -349,7 +366,7 @@
         </div>
         <div class="tx-details">
           <span class="tx-concept">${escapeHtml(tx.concepto)}</span>
-          <span class="tx-meta">${escapeHtml(tx.categoria)} • ${escapeHtml(tx.medioPago)}</span>
+          <span class="tx-meta">${escapeHtml(secondary)}</span>
         </div>
       </div>
       <div class="tx-right">
@@ -522,12 +539,17 @@
 
   function openDetailModal(tx) {
     state.selectedMovement = tx;
+    const isIncome = tx.tipo === 'Ingreso';
     els.modalConcept.textContent = tx.concepto;
-    els.modalAmount.textContent = `${tx.tipo === 'Ingreso' ? '+' : '-'}${formatCOP(tx.valor)} ${tx.moneda || 'COP'}`;
-    els.modalAmount.style.color = tx.tipo === 'Ingreso' ? 'var(--ios-green)' : 'var(--text-primary)';
+    els.modalAmount.textContent = `${isIncome ? '+' : '-'}${formatCOP(tx.valor)} ${tx.moneda || 'COP'}`;
+    els.modalAmount.style.color = isIncome ? 'var(--ios-green)' : 'var(--text-primary)';
     els.modalDatetime.textContent = `${tx.fecha || '-'} ${tx.hora || ''}`;
-    els.modalCategory.textContent = `${(CATEGORY_META[tx.categoria] && CATEGORY_META[tx.categoria].icon) || ''} ${tx.categoria}`;
-    els.modalPayment.textContent = tx.medioPago || '-';
+    els.modalCategoryLabel.textContent = isIncome ? 'Tipo' : 'Categoría';
+    els.modalCategory.textContent = isIncome
+      ? 'Ingreso'
+      : `${(CATEGORY_META[tx.categoria] && CATEGORY_META[tx.categoria].icon) || ''} ${tx.categoria}`;
+    els.modalPaymentLabel.textContent = isIncome ? 'Cuenta de destino' : 'Medio de pago';
+    els.modalPayment.textContent = isIncome ? (tx.cuenta || 'Cuenta principal') : (tx.medioPago || '-');
     els.modalNote.textContent = tx.nota || '(Sin nota)';
     els.modalId.textContent = tx.id || '(Sin ID)';
 
@@ -574,6 +596,40 @@
   // Form Submission
   // =========================================================================
 
+  function updateMovementForm(type) {
+    const isIncome = type === 'Ingreso';
+    state.formData.tipo = type;
+    els.typeSegments.forEach(button => button.classList.toggle('active', button.dataset.type === type));
+    els.expenseConceptChips.hidden = isIncome;
+    els.incomeSourceChips.hidden = !isIncome;
+    els.expenseCategoryBlock.hidden = isIncome;
+    els.expensePaymentBlock.hidden = isIncome;
+    els.incomeAccountBlock.hidden = !isIncome;
+    els.formConceptLabel.textContent = isIncome ? 'Origen del ingreso' : 'Comercio / concepto';
+    els.formConcept.placeholder = isIncome ? 'Ej. Nómina, venta o reembolso' : '¿En qué gastaste? (Ej. Terpel)';
+    els.formNoteLabel.textContent = isIncome ? 'Nota opcional' : 'Banco / nota opcional';
+    els.formNote.placeholder = isIncome ? 'Ej. Pago de septiembre' : 'Ej. Bancolombia, Nu, etc.';
+    els.btnSubmitText.textContent = isIncome ? 'Guardar ingreso' : 'Guardar gasto';
+
+    if (isIncome) {
+      state.formData.categoria = 'Otros';
+      state.formData.medioPago = 'Transferencia';
+      if (!state.formData.cuenta || state.formData.cuenta === 'Otra') {
+        state.formData.cuenta = 'Cuenta principal';
+      }
+    } else {
+      const selectedCategory = document.querySelector('.cat-pill.active');
+      const selectedPayment = document.querySelector('.pay-pill.active');
+      state.formData.categoria = selectedCategory ? selectedCategory.dataset.cat : 'Comida';
+      state.formData.medioPago = selectedPayment ? selectedPayment.dataset.method : 'Débito';
+      state.formData.cuenta = 'Otra';
+    }
+
+    if (state.activeTab === 'tab-agregar') {
+      els.headerTitle.textContent = isIncome ? 'Nuevo Ingreso' : 'Nuevo Gasto';
+    }
+  }
+
   async function handleSaveExpense() {
     const rawVal = els.formAmount.value.replace(/\D/g, '');
     const amount = parseInt(rawVal, 10);
@@ -586,7 +642,7 @@
     }
 
     if (!concept) {
-      showToast('Ingresa el comercio o concepto');
+      showToast(state.formData.tipo === 'Ingreso' ? 'Ingresa el origen del ingreso' : 'Ingresa el comercio o concepto');
       els.formConcept.focus();
       return;
     }
@@ -617,7 +673,7 @@
     els.formAmount.value = '';
     els.formConcept.value = '';
     els.formNote.value = '';
-    showToast('¡Guardado exitosamente! ✓');
+    showToast(state.formData.tipo === 'Ingreso' ? 'Ingreso guardado ✓' : 'Gasto guardado ✓');
     switchTab('tab-inicio');
 
     // Send to Google Apps Script
@@ -667,6 +723,7 @@
     // Quick Add Button
     els.btnQuickAdd.addEventListener('click', () => {
       triggerHaptic();
+      updateMovementForm('Gasto');
       switchTab('tab-agregar');
       els.formAmount.focus();
     });
@@ -747,9 +804,25 @@
     els.typeSegments.forEach(btn => {
       btn.addEventListener('click', () => {
         triggerHaptic();
-        els.typeSegments.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.formData.tipo = btn.dataset.type;
+        updateMovementForm(btn.dataset.type);
+      });
+    });
+
+    // Form: Income Source Shortcuts
+    els.incomeSourceButtons.forEach(chip => {
+      chip.addEventListener('click', () => {
+        triggerHaptic();
+        els.formConcept.value = chip.dataset.concept;
+      });
+    });
+
+    // Form: Destination Account for Income
+    els.accountPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        triggerHaptic();
+        els.accountPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        state.formData.cuenta = pill.dataset.account;
       });
     });
 
@@ -797,6 +870,7 @@
   function init() {
     loadLocalCache();
     attachEvents();
+    updateMovementForm('Gasto');
     renderAll();
     if (state.accessPin) {
       els.authGate.classList.add('is-hidden');

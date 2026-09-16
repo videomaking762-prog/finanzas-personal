@@ -178,12 +178,12 @@
         <div class="form-grouped-fields">
           <!-- Concept / Commerce -->
           <div class="form-field-row">
-            <label for="form-concept" class="field-label">Comercio / concepto</label>
+            <label for="form-concept" class="field-label" id="form-concept-label">Comercio / concepto</label>
             <input type="text" id="form-concept" placeholder="¿En qué gastaste? (Ej. Terpel)" class="field-input" required>
           </div>
 
           <!-- Quick Frequent Merchants Chips -->
-          <div class="merchant-chips-row">
+          <div class="merchant-chips-row" id="expense-concept-chips">
             <button type="button" class="merchant-chip" data-concept="Limonada de Coco" data-cat="Comida">Limonada</button>
             <button type="button" class="merchant-chip" data-concept="Almuerzo" data-cat="Comida">Almuerzo</button>
             <button type="button" class="merchant-chip" data-concept="Terpel" data-cat="Gasolina">Terpel</button>
@@ -191,8 +191,16 @@
             <button type="button" class="merchant-chip" data-concept="Mercado Libre" data-cat="Otros">M. Libre</button>
           </div>
 
+          <div class="merchant-chips-row" id="income-source-chips" hidden>
+            <button type="button" class="income-source-chip" data-concept="Nómina">Nómina</button>
+            <button type="button" class="income-source-chip" data-concept="Honorarios">Honorarios</button>
+            <button type="button" class="income-source-chip" data-concept="Venta">Venta</button>
+            <button type="button" class="income-source-chip" data-concept="Reembolso">Reembolso</button>
+            <button type="button" class="income-source-chip" data-concept="Otro ingreso">Otro</button>
+          </div>
+
           <!-- Category Selector (Touch Chips) -->
-          <div class="form-field-block">
+          <div class="form-field-block" id="expense-category-block">
             <label class="field-label">Categoría</label>
             <div class="category-grid" id="category-selector-grid">
               <button type="button" class="cat-pill active" data-cat="Comida">🍔 Comida</button>
@@ -208,7 +216,7 @@
           </div>
 
           <!-- Payment Method (Touch Buttons) -->
-          <div class="form-field-block">
+          <div class="form-field-block" id="expense-payment-block">
             <label class="field-label">Medio de pago</label>
             <div class="payment-grid" id="payment-selector-grid">
               <button type="button" class="pay-pill active" data-method="Débito">💳 Débito</button>
@@ -218,9 +226,19 @@
             </div>
           </div>
 
+          <div class="form-field-block" id="income-account-block" hidden>
+            <label class="field-label">Cuenta de destino</label>
+            <div class="account-grid" id="account-selector-grid">
+              <button type="button" class="account-pill active" data-account="Cuenta principal">🏦 Principal</button>
+              <button type="button" class="account-pill" data-account="Nu">💜 Nu</button>
+              <button type="button" class="account-pill" data-account="Efectivo">💵 Efectivo</button>
+              <button type="button" class="account-pill" data-account="Otra">◯ Otra</button>
+            </div>
+          </div>
+
           <!-- Optional Bank/Note -->
           <div class="form-field-row">
-            <label for="form-note" class="field-label">Banco / nota opcional</label>
+            <label for="form-note" class="field-label" id="form-note-label">Banco / nota opcional</label>
             <input type="text" id="form-note" placeholder="Ej. Bancolombia, Nu, etc." class="field-input">
           </div>
         </div>
@@ -228,7 +246,7 @@
         <!-- Submit Button -->
         <div class="form-submit-container">
           <button type="button" class="btn-save-record" id="btn-submit-expense">
-            <span class="btn-text">Guardar movimiento</span>
+            <span class="btn-text">Guardar gasto</span>
             <span class="btn-spinner" hidden></span>
           </button>
         </div>
@@ -269,11 +287,11 @@
             <span class="info-val" id="modal-datetime">-</span>
           </div>
           <div class="sheet-info-row">
-            <span class="info-label">Categoría</span>
+            <span class="info-label" id="modal-category-label">Categoría</span>
             <span class="info-val" id="modal-category">-</span>
           </div>
           <div class="sheet-info-row">
-            <span class="info-label">Medio de pago</span>
+            <span class="info-label" id="modal-payment-label">Medio de pago</span>
             <span class="info-val" id="modal-payment">-</span>
           </div>
           <div class="sheet-info-row">
