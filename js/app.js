@@ -30,6 +30,7 @@
 
   // Application State
   const state = {
+    accessPin: localStorage.getItem('finanzas_access_pin') || '',
     gastos: [],
     resumen: {
       mesActual: 'Septiembre 2026',
@@ -57,6 +58,10 @@
 
   // DOM Elements
   const els = {
+    authGate: document.getElementById('auth-gate'),
+    authForm: document.getElementById('auth-form'),
+    authPin: document.getElementById('auth-pin'),
+    authError: document.getElementById('auth-error'),
     headerDate: document.getElementById('header-date'),
     headerTitle: document.getElementById('header-main-title'),
     btnSync: document.getElementById('btn-sync'),
@@ -144,6 +149,23 @@
   // Data Fetching & Sync
   // =========================================================================
 
+  async function apiRequest(payload) {
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ...payload, accessPin: state.accessPin })
+    });
+    const data = await resp.json();
+    if (data && data.code === 'UNAUTHORIZED') {
+      localStorage.removeItem('finanzas_access_pin');
+      state.accessPin = '';
+      els.authGate.classList.remove('is-hidden');
+      els.authError.textContent = 'El PIN no es correcto.';
+      throw new Error('UNAUTHORIZED');
+    }
+    return data;
+  }
+
   function loadLocalCache() {
     try {
       const cached = localStorage.getItem('finanzas_cache_data');
@@ -175,8 +197,7 @@
   async function syncData(showFeedback = false) {
     els.btnSync.classList.add('rotating');
     try {
-      const resp = await fetch(`${API_URL}?action=getData`, { method: 'GET', cache: 'no-cache' });
-      const data = await resp.json();
+      const data = await apiRequest({ action: 'getData' });
 
       if (data.ok && data.gastos) {
         state.gastos = data.gastos;
@@ -188,6 +209,7 @@
         saveLocalCache();
         renderAll();
         if (showFeedback) showToast('Sincronizado con Google Sheets ✓');
+        return true;
       } else {
         throw new Error(data.error || 'Respuesta no válida');
       }
@@ -196,7 +218,8 @@
       // Si la API remota aún no tiene action=getData desplegado, calcular localmente desde caché
       recalculateLocalResumen();
       renderAll();
-      if (showFeedback) showToast('Modo sin conexión (datos locales)');
+      if (showFeedback && err.message !== 'UNAUTHORIZED') showToast('Modo sin conexión (datos locales)');
+      return false;
     } finally {
       els.btnSync.classList.remove('rotating');
     }
@@ -242,7 +265,10 @@
 
     // Actualizar botones de navegación
     els.tabItems.forEach(item => {
-      item.classList.toggle('active', item.dataset.target === targetId);
+      const isActive = item.dataset.target === targetId;
+      item.classList.toggle('active', isActive);
+      if (isActive) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
     });
 
     // Actualizar título de cabecera
@@ -532,12 +558,7 @@
     renderAll();
 
     try {
-      const resp = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'delete', id: item.id })
-      });
-      const res = await resp.json();
+      const res = await apiRequest({ action: 'delete', id: item.id });
       if (res.ok) {
         showToast('Movimiento eliminado con éxito ✓');
       } else {
@@ -601,11 +622,7 @@
 
     // Send to Google Apps Script
     try {
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(newTx)
-      });
+      await apiRequest(newTx);
       // Sincronizar en segundo plano
       syncData(false);
     } catch (e) {
@@ -618,6 +635,29 @@
   // =========================================================================
 
   function attachEvents() {
+    els.authForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const pin = els.authPin.value.replace(/\D/g, '');
+      if (pin.length !== 8) {
+        els.authError.textContent = 'Ingresa los 8 dígitos.';
+        return;
+      }
+
+      const button = els.authForm.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Verificando…';
+      els.authError.textContent = '';
+      state.accessPin = pin;
+      const connected = await syncData(false);
+      if (connected) {
+        localStorage.setItem('finanzas_access_pin', pin);
+        els.authPin.value = '';
+        els.authGate.classList.add('is-hidden');
+      }
+      button.disabled = false;
+      button.textContent = 'Desbloquear';
+    });
+
     // Sync Button
     els.btnSync.addEventListener('click', () => {
       triggerHaptic();
@@ -758,7 +798,13 @@
     loadLocalCache();
     attachEvents();
     renderAll();
-    syncData(false);
+    if (state.accessPin) {
+      els.authGate.classList.add('is-hidden');
+      syncData(false);
+    } else {
+      els.authGate.classList.remove('is-hidden');
+      setTimeout(() => els.authPin.focus(), 150);
+    }
   }
 
   if (document.readyState === 'loading') {

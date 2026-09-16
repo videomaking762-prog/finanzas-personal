@@ -1,28 +1,348 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#000000">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Mis Finanzas — Personal</title>
+
+  <!-- PWA & iOS Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Mis Finanzas</title>
-  <meta http-equiv="refresh" content="0;url=https://script.google.com/macros/s/AKfycbyqqX6lz-6xn6hqqhDvok71PQLQaxcvXzQgAiB_LTqV4LlsI4ENYbQ44rjquvVAG8B_/exec">
-  <style>
-    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
-    body { min-height: 100dvh; margin: 0; display: grid; place-items: center; background: #000; color: #fff; }
-    main { text-align: center; padding: 32px; }
-    .mark { width: 54px; height: 54px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 50%; background: #0a7c5b; font-size: 30px; font-weight: 600; }
-    p { margin: 0; color: #aeaeb2; font-size: 17px; }
-    a { display: inline-block; margin-top: 20px; color: #0a84ff; font-weight: 600; }
-  </style>
-  <script>location.replace('https://script.google.com/macros/s/AKfycbyqqX6lz-6xn6hqqhDvok71PQLQaxcvXzQgAiB_LTqV4LlsI4ENYbQ44rjquvVAG8B_/exec');</script>
+  <meta name="apple-mobile-web-app-title" content="Finanzas">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Apple Touch Icon SVG data URL fallback -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%23177A5B'/><path d='M256 120v272M180 200h152c22 0 40 18 40 40s-18 40-40 40H180c-22 0-40 18-40 40s18 40 40 40h152' stroke='white' stroke-width='40' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
 </head>
 <body>
-  <main>
-    <div class="mark" aria-hidden="true">$</div>
-    <p>Abriendo Mis Finanzas…</p>
-    <a href="https://script.google.com/macros/s/AKfycbyqqX6lz-6xn6hqqhDvok71PQLQaxcvXzQgAiB_LTqV4LlsI4ENYbQ44rjquvVAG8B_/exec">Continuar</a>
+
+  <div id="auth-gate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="auth-card">
+      <div class="auth-mark" aria-hidden="true">$</div>
+      <p class="auth-eyebrow">Acceso privado</p>
+      <h1 id="auth-title">Mis Finanzas</h1>
+      <p class="auth-copy">Ingresa tu PIN para conectar con Google Sheets.</p>
+      <form id="auth-form" novalidate>
+        <label for="auth-pin">PIN de 8 dígitos</label>
+        <input id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" enterkeyhint="go" required>
+        <p id="auth-error" class="auth-error" role="alert" aria-live="polite"></p>
+        <button type="submit" class="auth-submit">Desbloquear</button>
+      </form>
+      <p class="auth-privacy">El PIN permanece guardado únicamente en este dispositivo.</p>
+    </div>
+  </div>
+
+  <!-- Dynamic Capsule Toast (Dynamic Island style) -->
+  <div id="toast" class="ios-toast" aria-live="polite"></div>
+
+  <!-- iOS Top Navigation Header -->
+  <header class="ios-header">
+    <div class="header-inner">
+      <div class="header-titles">
+        <span class="header-subtitle" id="header-date">Septiembre 2026</span>
+        <h1 class="header-title" id="header-main-title">Mis Finanzas</h1>
+      </div>
+      <div class="header-actions">
+        <button id="btn-sync" class="header-btn" title="Sincronizar con Google Sheets" aria-label="Sincronizar con Google Sheets">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Views Container -->
+  <main class="app-main">
+
+    <!-- TAB 1: INICIO -->
+    <section id="tab-inicio" class="tab-view active">
+      <!-- Balance Hero Card -->
+      <div class="hero-balance-card">
+        <div class="card-glass-glow"></div>
+        <div class="balance-label">Balance del mes</div>
+        <div class="balance-amount" id="home-balance">$0</div>
+        <div class="kpi-pills-row">
+          <div class="kpi-pill kpi-expense">
+            <div class="pill-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            </div>
+            <div class="pill-content">
+              <span class="pill-title">Gastos</span>
+              <span class="pill-value" id="home-gastos">$0</span>
+            </div>
+          </div>
+          <div class="kpi-pill kpi-income">
+            <div class="pill-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </div>
+            <div class="pill-content">
+              <span class="pill-title">Ingresos</span>
+              <span class="pill-value" id="home-ingresos">$0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action: Registrar Movimiento -->
+      <div class="quick-action-container">
+        <button class="btn-primary-action" id="btn-quick-add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+          <span>Registrar nuevo gasto</span>
+        </button>
+      </div>
+
+      <!-- Mini Chart Card -->
+      <div class="ios-card">
+        <div class="card-header">
+          <h2 class="card-title">Gastos por categoría</h2>
+          <span class="card-badge" id="chart-total-count">0 mov.</span>
+        </div>
+        <div class="chart-container-compact" id="donut-chart-container">
+          <svg id="donut-svg" viewBox="0 0 200 200" class="donut-svg"></svg>
+          <div class="donut-center-info">
+            <span class="donut-center-label">Total</span>
+            <span class="donut-center-val" id="donut-center-val">$0</span>
+          </div>
+        </div>
+        <div class="legend-list-compact" id="home-chart-legend"></div>
+      </div>
+
+      <!-- Recent Transactions List -->
+      <div class="ios-card section-card">
+        <div class="card-header">
+          <h2 class="card-title">Movimientos recientes</h2>
+          <button class="card-link-btn" id="btn-see-all">Ver todos</button>
+        </div>
+        <div class="transactions-list" id="home-recent-list">
+          <div class="list-placeholder">Cargando movimientos...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: MOVIMIENTOS (HISTORIAL COMPLETO) -->
+    <section id="tab-movimientos" class="tab-view">
+      <!-- Search & Filters -->
+      <div class="search-bar-wrapper">
+        <div class="search-input-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="search-input" placeholder="Buscar comercio, nota, categoría..." autocomplete="off">
+          <button id="btn-clear-search" class="clear-search-btn" hidden>×</button>
+        </div>
+      </div>
+
+      <!-- Category Filter Chips -->
+      <div class="filter-chips-scroll" id="filter-chips-container">
+        <button class="chip-item active" data-filter="all">Todos</button>
+        <button class="chip-item" data-filter="Comida">Comida</button>
+        <button class="chip-item" data-filter="Transporte">Transporte</button>
+        <button class="chip-item" data-filter="Gasolina">Gasolina</button>
+        <button class="chip-item" data-filter="Mercado / compras">Mercado</button>
+        <button class="chip-item" data-filter="Otros">Otros</button>
+      </div>
+
+      <!-- Full Feed Grouped by Date -->
+      <div class="full-feed-container" id="feed-container">
+        <div class="list-placeholder">Cargando historial...</div>
+      </div>
+    </section>
+
+    <!-- TAB 3: AGREGAR (FORMULARIO REVOLUT / APPLE PAY STYLE) -->
+    <section id="tab-agregar" class="tab-view">
+      <div class="form-sheet-card">
+        <!-- Movement Type Selector (Segmented Control) -->
+        <div class="segmented-control">
+          <button type="button" class="segment-btn active" data-type="Gasto">Gasto</button>
+          <button type="button" class="segment-btn" data-type="Ingreso">Ingreso</button>
+        </div>
+
+        <!-- Hero Amount Input -->
+        <div class="hero-amount-display">
+          <span class="currency-symbol">$</span>
+          <input type="text" id="form-amount" inputmode="numeric" placeholder="0" class="huge-amount-input">
+          <span class="currency-iso">COP</span>
+        </div>
+
+        <!-- Quick Amount Increments -->
+        <div class="quick-amounts-row">
+          <button type="button" class="quick-amt-btn" data-add="5000">+5.000</button>
+          <button type="button" class="quick-amt-btn" data-add="10000">+10.000</button>
+          <button type="button" class="quick-amt-btn" data-add="20000">+20.000</button>
+          <button type="button" class="quick-amt-btn" data-add="50000">+50.000</button>
+        </div>
+
+        <!-- Form Fields Group -->
+        <div class="form-grouped-fields">
+          <!-- Concept / Commerce -->
+          <div class="form-field-row">
+            <label for="form-concept" class="field-label">Comercio / concepto</label>
+            <input type="text" id="form-concept" placeholder="¿En qué gastaste? (Ej. Terpel)" class="field-input" required>
+          </div>
+
+          <!-- Quick Frequent Merchants Chips -->
+          <div class="merchant-chips-row">
+            <button type="button" class="merchant-chip" data-concept="Limonada de Coco" data-cat="Comida">Limonada</button>
+            <button type="button" class="merchant-chip" data-concept="Almuerzo" data-cat="Comida">Almuerzo</button>
+            <button type="button" class="merchant-chip" data-concept="Terpel" data-cat="Gasolina">Terpel</button>
+            <button type="button" class="merchant-chip" data-concept="Agua" data-cat="Comida">Agua</button>
+            <button type="button" class="merchant-chip" data-concept="Mercado Libre" data-cat="Otros">M. Libre</button>
+          </div>
+
+          <!-- Category Selector (Touch Chips) -->
+          <div class="form-field-block">
+            <label class="field-label">Categoría</label>
+            <div class="category-grid" id="category-selector-grid">
+              <button type="button" class="cat-pill active" data-cat="Comida">🍔 Comida</button>
+              <button type="button" class="cat-pill" data-cat="Mercado / compras">🛒 Mercado</button>
+              <button type="button" class="cat-pill" data-cat="Gasolina">⛽ Gasolina</button>
+              <button type="button" class="cat-pill" data-cat="Transporte">🚌 Transporte</button>
+              <button type="button" class="cat-pill" data-cat="Tecnología">💻 Tecnología</button>
+              <button type="button" class="cat-pill" data-cat="Hogar">🏠 Hogar</button>
+              <button type="button" class="cat-pill" data-cat="Entretenimiento">🍿 Ocio</button>
+              <button type="button" class="cat-pill" data-cat="Salud">💊 Salud</button>
+              <button type="button" class="cat-pill" data-cat="Otros">📦 Otros</button>
+            </div>
+          </div>
+
+          <!-- Payment Method (Touch Buttons) -->
+          <div class="form-field-block">
+            <label class="field-label">Medio de pago</label>
+            <div class="payment-grid" id="payment-selector-grid">
+              <button type="button" class="pay-pill active" data-method="Débito">💳 Débito</button>
+              <button type="button" class="pay-pill" data-method="Efectivo">💵 Efectivo</button>
+              <button type="button" class="pay-pill" data-method="Transferencia">📲 Transf.</button>
+              <button type="button" class="pay-pill" data-method="Crédito">💳 Crédito</button>
+            </div>
+          </div>
+
+          <!-- Optional Bank/Note -->
+          <div class="form-field-row">
+            <label for="form-note" class="field-label">Banco / nota opcional</label>
+            <input type="text" id="form-note" placeholder="Ej. Bancolombia, Nu, etc." class="field-input">
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="form-submit-container">
+          <button type="button" class="btn-save-record" id="btn-submit-expense">
+            <span class="btn-text">Guardar movimiento</span>
+            <span class="btn-spinner" hidden></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: GRÁFICAS Y ANÁLISIS -->
+    <section id="tab-graficas" class="tab-view">
+      <div class="ios-card">
+        <h2 class="card-title">Distribución por categoría</h2>
+        <div class="chart-big-wrapper">
+          <svg id="chart-analytics-donut" viewBox="0 0 240 240" class="donut-svg-big"></svg>
+        </div>
+        <div class="analytics-breakdown" id="analytics-categories-list"></div>
+      </div>
+
+      <div class="ios-card section-card">
+        <h2 class="card-title">Gastos por medio de pago</h2>
+        <div class="bars-chart-container" id="analytics-payments-bars"></div>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Detail / Action Modal Bottom Sheet -->
+  <div id="modal-detail" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-sheet">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title" id="modal-concept">Detalle de movimiento</h3>
+        <button class="sheet-close-btn" id="btn-close-modal">Listo</button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-amount-hero" id="modal-amount">$0 COP</div>
+        <div class="sheet-info-group">
+          <div class="sheet-info-row">
+            <span class="info-label">Fecha y hora</span>
+            <span class="info-val" id="modal-datetime">-</span>
+          </div>
+          <div class="sheet-info-row">
+            <span class="info-label">Categoría</span>
+            <span class="info-val" id="modal-category">-</span>
+          </div>
+          <div class="sheet-info-row">
+            <span class="info-label">Medio de pago</span>
+            <span class="info-val" id="modal-payment">-</span>
+          </div>
+          <div class="sheet-info-row">
+            <span class="info-label">Nota</span>
+            <span class="info-val" id="modal-note">-</span>
+          </div>
+          <div class="sheet-info-row">
+            <span class="info-label">ID único</span>
+            <span class="info-val info-id" id="modal-id">-</span>
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn-delete-record" id="btn-modal-delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+            <span>Eliminar movimiento</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS Bottom Tab Bar (Glassmorphic Blur) -->
+  <nav class="ios-tab-bar">
+    <button class="tab-item active" data-target="tab-inicio">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <span class="tab-label">Inicio</span>
+    </button>
+
+    <button class="tab-item" data-target="tab-movimientos">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+      </div>
+      <span class="tab-label">Movimientos</span>
+    </button>
+
+    <button class="tab-item tab-item-add" data-target="tab-agregar">
+      <div class="tab-icon-add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </div>
+      <span class="tab-label">Agregar</span>
+    </button>
+
+    <button class="tab-item" data-target="tab-graficas">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+          <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+        </svg>
+      </div>
+      <span class="tab-label">Gráficas</span>
+    </button>
+  </nav>
+
+  <!-- Core App Logic -->
+  <script src="js/app.js"></script>
 </body>
 </html>
