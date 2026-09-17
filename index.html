@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2.0">
 
   <!-- Apple Touch Icon SVG data URL fallback -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%23177A5B'/><path d='M256 120v272M180 200h152c22 0 40 18 40 40s-18 40-40 40H180c-22 0-40 18-40 40s18 40 40 40h152' stroke='white' stroke-width='40' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
@@ -46,6 +46,12 @@
         <h1 class="header-title" id="header-main-title">Mis Finanzas</h1>
       </div>
       <div class="header-actions">
+        <button id="btn-toggle-privacy" class="header-btn" title="Ocultar o mostrar montos" aria-label="Ocultar o mostrar montos">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
         <button id="btn-sync" class="header-btn" title="Sincronizar con Google Sheets" aria-label="Sincronizar con Google Sheets">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -63,7 +69,13 @@
       <!-- Balance Hero Card -->
       <div class="hero-balance-card">
         <div class="card-glass-glow"></div>
-        <div class="balance-label">Balance del mes</div>
+        <div class="balance-top-row">
+          <div class="balance-label">Balance del mes</div>
+          <div class="net-worth-pill" id="home-net-worth-pill" title="Patrimonio neto total (Activos - Deudas)">
+            <span class="nw-label">Patrimonio:</span>
+            <span class="nw-val" id="home-net-worth-val">$0</span>
+          </div>
+        </div>
         <div class="balance-amount" id="home-balance">$0</div>
         <div class="kpi-pills-row">
           <div class="kpi-pill kpi-expense">
@@ -91,8 +103,28 @@
       <div class="quick-action-container">
         <button class="btn-primary-action" id="btn-quick-add">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-          <span>Registrar nuevo gasto</span>
+          <span>Registrar nuevo movimiento</span>
         </button>
+      </div>
+
+      <!-- Snapshot Patrimonio en Inicio -->
+      <div class="patrimonio-snapshot-row">
+        <div class="snapshot-card snapshot-inv" id="card-snapshot-inv" role="button" tabindex="0">
+          <div class="snapshot-header">
+            <span class="snapshot-tag">Inversiones</span>
+            <span class="snapshot-badge" id="snap-inv-return">+0%</span>
+          </div>
+          <div class="snapshot-val" id="snap-inv-val">$0</div>
+          <span class="snapshot-sub" id="snap-inv-sub">0 activos</span>
+        </div>
+        <div class="snapshot-card snapshot-debt" id="card-snapshot-debt" role="button" tabindex="0">
+          <div class="snapshot-header">
+            <span class="snapshot-tag">Deudas</span>
+            <span class="snapshot-badge debt-badge-alert" id="snap-debt-count">0 activas</span>
+          </div>
+          <div class="snapshot-val" id="snap-debt-val">$0</div>
+          <span class="snapshot-sub" id="snap-debt-sub">Cuota mes: $0</span>
+        </div>
       </div>
 
       <!-- Mini Chart Card -->
@@ -134,9 +166,13 @@
         </div>
       </div>
 
-      <!-- Category Filter Chips -->
+      <!-- Category & Type Filter Chips -->
       <div class="filter-chips-scroll" id="filter-chips-container">
         <button class="chip-item active" data-filter="all">Todos</button>
+        <button class="chip-item" data-filter="type:Gasto">Gastos</button>
+        <button class="chip-item" data-filter="type:Ingreso">Ingresos</button>
+        <button class="chip-item" data-filter="type:Inversión">Inversiones</button>
+        <button class="chip-item" data-filter="type:Pago Deuda">Deudas</button>
         <button class="chip-item" data-filter="Comida">Comida</button>
         <button class="chip-item" data-filter="Transporte">Transporte</button>
         <button class="chip-item" data-filter="Gasolina">Gasolina</button>
@@ -150,13 +186,15 @@
       </div>
     </section>
 
-    <!-- TAB 3: AGREGAR (FORMULARIO REVOLUT / APPLE PAY STYLE) -->
+    <!-- TAB 3: AGREGAR (FORMULARIO POLIMÓRFICO APPLE PAY STYLE) -->
     <section id="tab-agregar" class="tab-view">
       <div class="form-sheet-card">
-        <!-- Movement Type Selector (Segmented Control) -->
-        <div class="segmented-control">
+        <!-- Movement Type Selector (Segmented Control con 4 tipos) -->
+        <div class="segmented-control segmented-4" id="form-type-segments">
           <button type="button" class="segment-btn active" data-type="Gasto">Gasto</button>
           <button type="button" class="segment-btn" data-type="Ingreso">Ingreso</button>
+          <button type="button" class="segment-btn" data-type="Inversión">Inversión</button>
+          <button type="button" class="segment-btn" data-type="Pago Deuda">Deuda</button>
         </div>
 
         <!-- Hero Amount Input -->
@@ -197,6 +235,21 @@
             <button type="button" class="income-source-chip" data-concept="Venta">Venta</button>
             <button type="button" class="income-source-chip" data-concept="Reembolso">Reembolso</button>
             <button type="button" class="income-source-chip" data-concept="Otro ingreso">Otro</button>
+          </div>
+
+          <div class="merchant-chips-row" id="investment-concept-chips" hidden>
+            <button type="button" class="inv-chip" data-concept="Aporte CDT">CDT</button>
+            <button type="button" class="inv-chip" data-concept="Cajita Nu">Nu Cajita</button>
+            <button type="button" class="inv-chip" data-concept="Acciones / S&P 500">S&P 500</button>
+            <button type="button" class="inv-chip" data-concept="Bitcoin">Bitcoin</button>
+            <button type="button" class="inv-chip" data-concept="Fondo Inversión">Fondo FIC</button>
+          </div>
+
+          <div class="merchant-chips-row" id="debt-concept-chips" hidden>
+            <button type="button" class="debt-chip" data-concept="Pago Tarjeta Crédito">T. Crédito</button>
+            <button type="button" class="debt-chip" data-concept="Abono Préstamo">Préstamo</button>
+            <button type="button" class="debt-chip" data-concept="Cuota Vehículo">Vehículo</button>
+            <button type="button" class="debt-chip" data-concept="Pago Deuda Personal">Personal</button>
           </div>
 
           <!-- Category Selector (Touch Chips) -->
@@ -253,7 +306,164 @@
       </div>
     </section>
 
-    <!-- TAB 4: GRÁFICAS Y ANÁLISIS -->
+    <!-- TAB 4: PATRIMONIO (INVERSIONES & DEUDAS) -->
+    <section id="tab-patrimonio" class="tab-view">
+      <!-- Section Switcher Header (Segmented Bar) -->
+      <div class="patrimonio-segment-nav">
+        <button type="button" class="pat-nav-btn active" data-subview="subview-inversiones">
+          <span>Inversiones</span>
+          <span class="pat-badge" id="badge-total-inv">$0</span>
+        </button>
+        <button type="button" class="pat-nav-btn" data-subview="subview-deudas">
+          <span>Deudas</span>
+          <span class="pat-badge badge-debt" id="badge-total-debt">$0</span>
+        </button>
+      </div>
+
+      <!-- SUBVIEW A: INVERSIONES -->
+      <div id="subview-inversiones" class="patrimonio-subview active">
+        <!-- Hero Inversiones Card -->
+        <div class="ios-card inv-hero-card">
+          <div class="card-header">
+            <span class="card-sublabel">Total Invertido (Valor Actual)</span>
+            <span class="tag-badge tag-green" id="inv-hero-yield">+0% E.A.</span>
+          </div>
+          <div class="inv-hero-amount" id="inv-total-market">$0</div>
+          <div class="inv-metrics-row">
+            <div class="inv-metric">
+              <span class="metric-lbl">Capital aportado</span>
+              <span class="metric-val" id="inv-total-principal">$0</span>
+            </div>
+            <div class="inv-metric">
+              <span class="metric-lbl">Ganancia estimada</span>
+              <span class="metric-val text-green" id="inv-total-profit">+$0</span>
+            </div>
+          </div>
+          <div class="inv-hero-actions">
+            <button class="btn-sub-action" id="btn-open-add-inv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Nueva inversión</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Asset Allocation Chart Card -->
+        <div class="ios-card">
+          <div class="card-header">
+            <h2 class="card-title">Asignación de activos</h2>
+            <span class="card-badge" id="inv-asset-count">0 activos</span>
+          </div>
+          <div class="chart-container-compact" id="inv-donut-chart-container">
+            <svg id="inv-donut-svg" viewBox="0 0 200 200" class="donut-svg"></svg>
+            <div class="donut-center-info">
+              <span class="donut-center-label">Portafolio</span>
+              <span class="donut-center-val" id="inv-donut-center-val">100%</span>
+            </div>
+          </div>
+          <div class="legend-list-compact" id="inv-chart-legend"></div>
+        </div>
+
+        <!-- Inversiones List -->
+        <div class="ios-card section-card">
+          <div class="card-header">
+            <h2 class="card-title">Portafolio activo</h2>
+          </div>
+          <div class="investments-list" id="investments-container">
+            <div class="list-placeholder">No hay inversiones registradas aún.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBVIEW B: DEUDAS Y CRÉDITO -->
+      <div id="subview-deudas" class="patrimonio-subview">
+        <!-- Hero Deudas Card -->
+        <div class="ios-card debt-hero-card">
+          <div class="card-header">
+            <span class="card-sublabel">Deuda Total Acumulada</span>
+            <span class="tag-badge" id="debt-hero-dti-badge">DTI: 0%</span>
+          </div>
+          <div class="debt-hero-amount" id="debt-total-amount">$0</div>
+          <div class="debt-metrics-row">
+            <div class="debt-metric">
+              <span class="metric-lbl">Pago mínimo mensual</span>
+              <span class="metric-val" id="debt-total-monthly">$0</span>
+            </div>
+            <div class="debt-metric">
+              <span class="metric-lbl">Uso global de cupos</span>
+              <span class="metric-val" id="debt-utilization-val">0%</span>
+            </div>
+          </div>
+          <div class="debt-hero-actions">
+            <button class="btn-sub-action" id="btn-open-add-debt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Nueva deuda</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Simulador de Desendeudamiento Acelerado (Snowball vs Avalanche) -->
+        <div class="ios-card simulator-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Plan de Libertad Financiera</h2>
+              <p class="card-desc">Simula cómo liquidar tus deudas más rápido</p>
+            </div>
+          </div>
+
+          <!-- Strategy Toggle -->
+          <div class="strategy-selector">
+            <button type="button" class="strategy-btn active" data-strategy="avalanche">
+              <span class="strat-title">⚡ Avalancha</span>
+              <span class="strat-desc">Mayor interés E.A. primero (Ahorro máx.)</span>
+            </button>
+            <button type="button" class="strategy-btn" data-strategy="snowball">
+              <span class="strat-title">⛄ Bola de Nieve</span>
+              <span class="strat-desc">Menor saldo primero (Victorias rápidas)</span>
+            </button>
+          </div>
+
+          <!-- Extra Payment Slider -->
+          <div class="simulator-slider-box">
+            <div class="slider-header">
+              <span>Abono extra mensual a capital:</span>
+              <strong id="sim-extra-val">$100.000 COP</strong>
+            </div>
+            <input type="range" id="sim-extra-slider" min="0" max="1000000" step="25000" value="100000" class="ios-slider">
+            <div class="slider-ticks">
+              <span>$0</span>
+              <span>$500k</span>
+              <span>$1M+</span>
+            </div>
+          </div>
+
+          <!-- Simulator Result Metrics -->
+          <div class="sim-results-grid">
+            <div class="sim-res-box">
+              <span class="sim-res-lbl">Libre de deudas en:</span>
+              <span class="sim-res-val highlight" id="sim-months-free">0 meses</span>
+              <span class="sim-res-sub" id="sim-date-free">-</span>
+            </div>
+            <div class="sim-res-box">
+              <span class="sim-res-lbl">Ahorro estimado en intereses:</span>
+              <span class="sim-res-val text-green" id="sim-interest-saved">$0</span>
+              <span class="sim-res-sub" id="sim-time-saved">0 meses antes</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deudas List -->
+        <div class="ios-card section-card">
+          <div class="card-header">
+            <h2 class="card-title">Mis Deudas y Tarjetas</h2>
+          </div>
+          <div class="debts-list" id="debts-container">
+            <div class="list-placeholder">No hay deudas registradas. ¡Estás libre de deudas!</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: GRÁFICAS Y ANÁLISIS -->
     <section id="tab-graficas" class="tab-view">
       <div class="ios-card">
         <h2 class="card-title">Distribución por categoría</h2>
@@ -313,7 +523,151 @@
     </div>
   </div>
 
-  <!-- iOS Bottom Tab Bar (Glassmorphic Blur) -->
+  <!-- Modal Inversión (Crear / Editar) -->
+  <div id="modal-inversion" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-sheet">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title" id="modal-inv-title">Nueva Inversión</h3>
+        <button class="sheet-close-btn" id="btn-close-modal-inv">Cancelar</button>
+      </div>
+      <div class="sheet-body modal-form-body">
+        <form id="form-inversion" novalidate>
+          <div class="form-grouped-fields">
+            <div class="form-field-row">
+              <label for="inv-nombre" class="field-label">Nombre del activo</label>
+              <input type="text" id="inv-nombre" placeholder="Ej. CDT Bancolombia, Nu Cajita" class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="inv-tipo" class="field-label">Tipo de activo</label>
+              <select id="inv-tipo" class="field-input field-select">
+                <option value="Renta Fija">Renta Fija / CDT</option>
+                <option value="Ahorro">Ahorro Remunerado (Nu/Lulo)</option>
+                <option value="Renta Variable">Acciones / ETFs</option>
+                <option value="Fondos">Fondos FIC / Voluntarios</option>
+                <option value="Cripto">Criptomonedas</option>
+                <option value="Inmobiliario">Bienes Raíces</option>
+                <option value="Otros">Otros</option>
+              </select>
+            </div>
+            <div class="form-field-row">
+              <label for="inv-institucion" class="field-label">Institución / Entidad</label>
+              <input type="text" id="inv-institucion" placeholder="Ej. Bancolombia, Nu, Hapi" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="inv-monto" class="field-label">Capital aportado (COP)</label>
+              <input type="text" id="inv-monto" inputmode="numeric" placeholder="Ej. 5000000" class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="inv-valor-actual" class="field-label">Valor actual vigente (COP)</label>
+              <input type="text" id="inv-valor-actual" inputmode="numeric" placeholder="Ej. 5350000" class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="inv-tasa" class="field-label">Tasa pactada % E.A. (opcional)</label>
+              <input type="number" step="0.1" id="inv-tasa" placeholder="Ej. 11.5" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="inv-vencimiento" class="field-label">Fecha vencimiento (opcional)</label>
+              <input type="date" id="inv-vencimiento" class="field-input">
+            </div>
+          </div>
+          <div class="form-submit-container">
+            <button type="submit" class="btn-save-record" id="btn-save-inv">
+              <span class="btn-text">Guardar inversión</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Deuda (Crear / Editar) -->
+  <div id="modal-deuda" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-sheet">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title" id="modal-debt-title">Nueva Deuda / Crédito</h3>
+        <button class="sheet-close-btn" id="btn-close-modal-debt">Cancelar</button>
+      </div>
+      <div class="sheet-body modal-form-body">
+        <form id="form-deuda" novalidate>
+          <div class="form-grouped-fields">
+            <div class="form-field-row">
+              <label for="debt-nombre" class="field-label">Nombre de la deuda</label>
+              <input type="text" id="debt-nombre" placeholder="Ej. Tarjeta Nu, Crédito Libre Inv." class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="debt-tipo" class="field-label">Tipo de deuda</label>
+              <select id="debt-tipo" class="field-input field-select">
+                <option value="Tarjeta">Tarjeta de Crédito</option>
+                <option value="Consumo">Crédito de Consumo / Personal</option>
+                <option value="Vehículo">Crédito de Vehículo</option>
+                <option value="Hipotecario">Crédito Hipotecario</option>
+                <option value="Personal">Préstamo Personal / Amigos</option>
+              </select>
+            </div>
+            <div class="form-field-row">
+              <label for="debt-entidad" class="field-label">Entidad acreedora</label>
+              <input type="text" id="debt-entidad" placeholder="Ej. Nu, Banco de Bogotá" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="debt-saldo" class="field-label">Saldo adeudado actual (COP)</label>
+              <input type="text" id="debt-saldo" inputmode="numeric" placeholder="Ej. 1800000" class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="debt-cupo" class="field-label">Cupo total o monto original (COP)</label>
+              <input type="text" id="debt-cupo" inputmode="numeric" placeholder="Ej. 5000000" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="debt-tasa" class="field-label">Tasa de interés % E.A.</label>
+              <input type="number" step="0.1" id="debt-tasa" placeholder="Ej. 24.5" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="debt-cuota" class="field-label">Cuota mensual mínima (COP)</label>
+              <input type="text" id="debt-cuota" inputmode="numeric" placeholder="Ej. 180000" class="field-input" required>
+            </div>
+            <div class="form-field-row">
+              <label for="debt-dia-corte" class="field-label">Día de corte del mes</label>
+              <input type="number" min="1" max="31" id="debt-dia-corte" placeholder="Ej. 15" class="field-input">
+            </div>
+            <div class="form-field-row">
+              <label for="debt-dia-pago" class="field-label">Día límite de pago del mes</label>
+              <input type="number" min="1" max="31" id="debt-dia-pago" placeholder="Ej. 25" class="field-input">
+            </div>
+          </div>
+          <div class="form-submit-container">
+            <button type="submit" class="btn-save-record" id="btn-save-debt">
+              <span class="btn-text">Guardar deuda</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Micro-Modal: Actualizar Saldo Inversión -->
+  <div id="modal-val-update" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-sheet">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <h3 class="sheet-title" id="modal-val-asset-name">Actualizar Valoración</h3>
+        <button class="sheet-close-btn" id="btn-close-modal-val">Listo</button>
+      </div>
+      <div class="sheet-body">
+        <div class="form-field-row" style="margin-top: 14px;">
+          <label for="val-new-amount" class="field-label">Nuevo valor actual (COP)</label>
+          <input type="text" id="val-new-amount" inputmode="numeric" placeholder="0" class="field-input" style="font-size: 1.3rem; font-weight: 700;">
+        </div>
+        <div class="form-submit-container" style="margin-top: 16px;">
+          <button type="button" class="btn-save-record" id="btn-save-val-update">
+            <span class="btn-text">Actualizar saldo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- iOS Bottom Tab Bar (5 Tabs con Liquid Glass) -->
   <nav class="ios-tab-bar">
     <button class="tab-item active" data-target="tab-inicio">
       <div class="tab-icon">
@@ -349,6 +703,16 @@
       <span class="tab-label">Agregar</span>
     </button>
 
+    <button class="tab-item" data-target="tab-patrimonio">
+      <div class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <rect width="20" height="14" x="2" y="5" rx="2"/>
+          <line x1="2" x2="22" y1="10" y2="10"/>
+        </svg>
+      </div>
+      <span class="tab-label">Patrimonio</span>
+    </button>
+
     <button class="tab-item" data-target="tab-graficas">
       <div class="tab-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -361,6 +725,6 @@
   </nav>
 
   <!-- Core App Logic -->
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=2.0"></script>
 </body>
 </html>
