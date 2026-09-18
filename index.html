@@ -127,6 +127,37 @@
         </div>
       </div>
 
+      <!-- Card: Planificador & Borrador de Presupuesto -->
+      <div class="ios-card budget-planner-card" id="card-open-planner" role="button" tabindex="0">
+        <div class="card-header">
+          <div class="planner-title-row">
+            <span class="planner-icon">🎯</span>
+            <div>
+              <h2 class="card-title">Distribuidor de Dinero</h2>
+              <p class="card-desc">Borrador por % o montos vs gastos reales</p>
+            </div>
+          </div>
+          <span class="tag-badge" id="planner-status-badge">Borrador</span>
+        </div>
+        <div class="planner-preview-metrics">
+          <div class="planner-metric">
+            <span class="metric-lbl">Base a repartir</span>
+            <span class="metric-val" id="planner-preview-total">$0</span>
+          </div>
+          <div class="planner-metric">
+            <span class="metric-lbl">Asignado</span>
+            <span class="metric-val" id="planner-preview-assigned">0%</span>
+          </div>
+          <div class="planner-metric">
+            <span class="metric-lbl">Ejecución mes</span>
+            <span class="metric-val" id="planner-preview-spent">$0</span>
+          </div>
+        </div>
+        <div class="planner-preview-bar-bg">
+          <div class="planner-preview-bar-fill" id="planner-preview-progress" style="width: 0%;"></div>
+        </div>
+      </div>
+
       <!-- Mini Chart Card -->
       <div class="ios-card">
         <div class="card-header">
@@ -802,6 +833,141 @@
           <button type="button" class="btn-save-record" id="btn-save-val-update">
             <span class="btn-text">Actualizar saldo</span>
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gestor y Distribuidor de Dinero (Borrador vs Comparativa) -->
+  <div id="modal-presupuesto" class="ios-modal-backdrop" aria-hidden="true">
+    <div class="ios-modal-sheet modal-sheet-full">
+      <div class="sheet-drag-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <h3 class="sheet-title">Distribuidor de Dinero</h3>
+          <p class="sheet-desc">Borrador por % o montos vs gastos reales</p>
+        </div>
+        <button class="sheet-close-btn" id="btn-close-modal-planner">Listo</button>
+      </div>
+
+      <!-- Control Segmentado: Borrador vs Comparativa -->
+      <div class="planner-segmented-bar">
+        <div class="period-segmented-control" id="planner-tab-control">
+          <button type="button" class="planner-tab-btn active" data-tab="draft">✏️ Borrador / Distribución</button>
+          <button type="button" class="planner-tab-btn" data-tab="compare">📊 Comparar vs Real</button>
+        </div>
+      </div>
+
+      <div class="planner-scroll-container">
+        <!-- SUBVIEW 1: BORRADOR Y ASIGNACIÓN -->
+        <div id="planner-subview-draft" class="planner-subview active">
+          <!-- Monto Base Card -->
+          <div class="ios-card planner-base-card">
+            <div class="card-header" style="margin-bottom: 8px;">
+              <span class="field-label" style="margin: 0;">Monto base a distribuir ($X)</span>
+              <button type="button" class="btn-micro-action" id="btn-use-monthly-income">
+                ⚡ Usar ingresos del mes
+              </button>
+            </div>
+            <div class="planner-amount-input-box">
+              <span class="currency-prefix">$</span>
+              <input type="text" id="planner-base-amount" inputmode="numeric" placeholder="0" class="field-input planner-hero-input">
+              <span class="currency-suffix">COP</span>
+            </div>
+
+            <!-- Atajos / Presets -->
+            <div class="planner-presets-row">
+              <span class="presets-lbl">Plantillas:</span>
+              <button type="button" class="preset-chip" data-preset="50-30-20">Regla 50/30/20</button>
+              <button type="button" class="preset-chip" data-preset="70-20-10">Regla 70/20/10</button>
+              <button type="button" class="preset-chip preset-chip-reset" data-preset="clear">Limpiar</button>
+            </div>
+          </div>
+
+          <!-- Barra de Asignación en Tiempo Real -->
+          <div class="planner-allocation-banner" id="planner-allocation-banner">
+            <div class="allocation-banner-header">
+              <div class="alloc-metric">
+                <span class="alloc-lbl">Asignado</span>
+                <strong class="alloc-val" id="planner-allocated-val">$0 (0%)</strong>
+              </div>
+              <div class="alloc-metric alloc-right">
+                <span class="alloc-lbl" id="planner-remaining-lbl">Por asignar</span>
+                <strong class="alloc-val text-green" id="planner-remaining-val">$0 (100%)</strong>
+              </div>
+            </div>
+            <div class="allocation-bar-track">
+              <div class="allocation-bar-fill" id="planner-allocated-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Lista de Sobres Asignados -->
+          <div class="planner-envelopes-section">
+            <div class="envelopes-header-row">
+              <span class="envelopes-title">Rubros y Sobres Asignados</span>
+              <span class="envelopes-count" id="planner-envelopes-count">0 rubros</span>
+            </div>
+
+            <div class="envelopes-list" id="planner-envelopes-list">
+              <!-- Filas de sobres insertadas dinámicamente -->
+            </div>
+
+            <button type="button" class="btn-add-envelope" id="btn-add-envelope">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+              <span>Agregar rubro / sobre</span>
+            </button>
+          </div>
+
+          <!-- Guardar Borrador -->
+          <div class="planner-actions-row">
+            <button type="button" class="btn-save-record" id="btn-save-planner-draft">
+              <span class="btn-text">Guardar borrador</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SUBVIEW 2: COMPARATIVA VS REAL (FIN DE MES) -->
+        <div id="planner-subview-compare" class="planner-subview">
+          <!-- Hero Resumen Comparativa -->
+          <div class="ios-card planner-compare-hero" id="planner-compare-hero">
+            <div class="compare-hero-header">
+              <span class="card-sublabel">Ejecución del Presupuesto (Mes Actual)</span>
+              <span class="tag-badge" id="compare-hero-badge">Al día</span>
+            </div>
+            <div class="compare-hero-metrics">
+              <div class="compare-metric">
+                <span class="metric-lbl">Borrador Planeado</span>
+                <span class="metric-val" id="compare-total-budgeted">$0</span>
+              </div>
+              <div class="compare-metric">
+                <span class="metric-lbl">Total Gastado</span>
+                <span class="metric-val" id="compare-total-spent">$0</span>
+              </div>
+              <div class="compare-metric">
+                <span class="metric-lbl">Diferencia</span>
+                <span class="metric-val text-green" id="compare-net-diff">$0</span>
+              </div>
+            </div>
+            <div class="compare-progress-track">
+              <div class="compare-progress-fill" id="compare-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Lista de Comparación por Rubro -->
+          <div class="compare-section">
+            <h4 class="compare-section-title">Desempeño por Rubro Presupuestado</h4>
+            <div class="compare-list" id="planner-comparison-list">
+              <!-- Ítems de comparación insertados dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Gastos No Presupuestados -->
+          <div class="compare-section" style="margin-top: 18px;">
+            <h4 class="compare-section-title">Gastos fuera de borrador</h4>
+            <div class="unbudgeted-list" id="planner-unbudgeted-list">
+              <!-- Gastos no presupuestados insertados dinámicamente -->
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -55,6 +55,11 @@
     editingInvId: null,
     editingDebtId: null,
     analyticsPeriod: 'month',
+    presupuesto: JSON.parse(localStorage.getItem('finanzas_presupuesto') || 'null') || {
+      montoBase: 0,
+      sobres: []
+    },
+    plannerActiveTab: 'draft',
     resumen: {
       mesActual: 'Septiembre 2026',
       totalGastos: 73800,
@@ -111,6 +116,12 @@
     snapDebtVal: document.getElementById('snap-debt-val'),
     snapDebtCount: document.getElementById('snap-debt-count'),
     snapDebtSub: document.getElementById('snap-debt-sub'),
+    cardOpenPlanner: document.getElementById('card-open-planner'),
+    plannerStatusBadge: document.getElementById('planner-status-badge'),
+    plannerPreviewTotal: document.getElementById('planner-preview-total'),
+    plannerPreviewAssigned: document.getElementById('planner-preview-assigned'),
+    plannerPreviewSpent: document.getElementById('planner-preview-spent'),
+    plannerPreviewProgress: document.getElementById('planner-preview-progress'),
     btnQuickAdd: document.getElementById('btn-quick-add'),
     donutSvg: document.getElementById('donut-svg'),
     donutCenterVal: document.getElementById('donut-center-val'),
@@ -242,6 +253,31 @@
     btnSaveValUpdate: document.getElementById('btn-save-val-update'),
     btnCloseModalVal: document.getElementById('btn-close-modal-val'),
 
+    // Modal Gestor & Distribuidor de Dinero
+    modalPresupuesto: document.getElementById('modal-presupuesto'),
+    btnCloseModalPlanner: document.getElementById('btn-close-modal-planner'),
+    plannerTabBtns: document.querySelectorAll('.planner-tab-btn'),
+    plannerSubviewDraft: document.getElementById('planner-subview-draft'),
+    plannerSubviewCompare: document.getElementById('planner-subview-compare'),
+    plannerBaseAmount: document.getElementById('planner-base-amount'),
+    btnUseMonthlyIncome: document.getElementById('btn-use-monthly-income'),
+    presetChips: document.querySelectorAll('.preset-chip'),
+    plannerAllocatedVal: document.getElementById('planner-allocated-val'),
+    plannerRemainingVal: document.getElementById('planner-remaining-val'),
+    plannerRemainingLbl: document.getElementById('planner-remaining-lbl'),
+    plannerAllocatedBar: document.getElementById('planner-allocated-bar'),
+    plannerEnvelopesList: document.getElementById('planner-envelopes-list'),
+    plannerEnvelopesCount: document.getElementById('planner-envelopes-count'),
+    btnAddEnvelope: document.getElementById('btn-add-envelope'),
+    btnSavePlannerDraft: document.getElementById('btn-save-planner-draft'),
+    compareTotalBudgeted: document.getElementById('compare-total-budgeted'),
+    compareTotalSpent: document.getElementById('compare-total-spent'),
+    compareNetDiff: document.getElementById('compare-net-diff'),
+    compareHeroBadge: document.getElementById('compare-hero-badge'),
+    compareProgressBar: document.getElementById('compare-progress-bar'),
+    plannerComparisonList: document.getElementById('planner-comparison-list'),
+    plannerUnbudgetedList: document.getElementById('planner-unbudgeted-list'),
+
     // Navigation
     tabItems: document.querySelectorAll('.tab-item')
   };
@@ -369,6 +405,11 @@
       // Guardar depuración en caché
       localStorage.setItem('finanzas_inversiones', JSON.stringify(state.inversiones));
       localStorage.setItem('finanzas_deudas', JSON.stringify(state.deudas));
+
+      const presLocal = localStorage.getItem('finanzas_presupuesto');
+      if (presLocal) {
+        try { state.presupuesto = JSON.parse(presLocal); } catch (_) {}
+      }
     } catch (e) {
       console.warn('Error al leer caché local:', e);
     }
@@ -383,6 +424,7 @@
       }));
       localStorage.setItem('finanzas_inversiones', JSON.stringify(state.inversiones));
       localStorage.setItem('finanzas_deudas', JSON.stringify(state.deudas));
+      localStorage.setItem('finanzas_presupuesto', JSON.stringify(state.presupuesto));
     } catch (e) {
       console.warn('Error al guardar caché:', e);
     }
@@ -506,6 +548,7 @@
     renderFeedView();
     renderPatrimonioView();
     renderAnalyticsView();
+    renderPlannerPreviewCard();
   }
 
   function renderHomeView() {
@@ -1491,6 +1534,437 @@
   }
 
   // =========================================================================
+  // Money Allocator & Budget Planner (Borrador vs Comparativa de Fin de Mes)
+  // =========================================================================
+
+  function renderPlannerPreviewCard() {
+    if (!els.cardOpenPlanner) return;
+    const base = Number(state.presupuesto.montoBase) || 0;
+    const sobres = state.presupuesto.sobres || [];
+    const assigned = sobres.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+    const assignedPct = base > 0 ? Math.min(100, Math.round((assigned / base) * 100)) : 0;
+    const spent = state.resumen.totalGastos || 0;
+
+    if (els.plannerPreviewTotal) els.plannerPreviewTotal.textContent = formatCOP(base);
+    if (els.plannerPreviewAssigned) {
+      els.plannerPreviewAssigned.textContent = `${assignedPct}% (${sobres.length} rubros)`;
+      els.plannerPreviewAssigned.style.color = assignedPct > 100 ? 'var(--ios-red)' : (assignedPct === 100 ? 'var(--ios-green)' : 'var(--text-primary)');
+    }
+    if (els.plannerPreviewSpent) els.plannerPreviewSpent.textContent = formatCOP(spent);
+    if (els.plannerPreviewProgress) {
+      els.plannerPreviewProgress.style.width = `${Math.min(100, assignedPct)}%`;
+      els.plannerPreviewProgress.style.background = assignedPct > 100 ? 'var(--ios-red)' : 'linear-gradient(90deg, #007AFF, #5856D6)';
+    }
+    if (els.plannerStatusBadge) {
+      if (base === 0) {
+        els.plannerStatusBadge.textContent = 'Sin borrador';
+        els.plannerStatusBadge.style.background = 'rgba(142,142,147,0.15)';
+        els.plannerStatusBadge.style.color = 'var(--text-secondary)';
+      } else if (assignedPct === 100) {
+        els.plannerStatusBadge.textContent = '100% Asignado ✓';
+        els.plannerStatusBadge.style.background = 'rgba(52,199,89,0.2)';
+        els.plannerStatusBadge.style.color = 'var(--ios-green)';
+      } else if (assignedPct > 100) {
+        els.plannerStatusBadge.textContent = 'Excedido ⚠️';
+        els.plannerStatusBadge.style.background = 'rgba(255,59,48,0.2)';
+        els.plannerStatusBadge.style.color = 'var(--ios-red)';
+      } else {
+        els.plannerStatusBadge.textContent = `${100 - assignedPct}% Por asignar`;
+        els.plannerStatusBadge.style.background = 'rgba(0,122,255,0.18)';
+        els.plannerStatusBadge.style.color = 'var(--ios-blue)';
+      }
+    }
+  }
+
+  function openPlannerModal() {
+    if (!els.modalPresupuesto) return;
+    triggerHaptic();
+    els.modalPresupuesto.classList.add('active');
+    renderPlannerDraft();
+    renderPlannerComparison();
+  }
+
+  function closePlannerModal() {
+    if (!els.modalPresupuesto) return;
+    els.modalPresupuesto.classList.remove('active');
+    renderPlannerPreviewCard();
+  }
+
+  function switchPlannerTab(tabId) {
+    state.plannerActiveTab = tabId;
+    triggerHaptic();
+    if (els.plannerTabBtns) {
+      els.plannerTabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+    }
+    if (els.plannerSubviewDraft) els.plannerSubviewDraft.classList.toggle('active', tabId === 'draft');
+    if (els.plannerSubviewCompare) els.plannerSubviewCompare.classList.toggle('active', tabId === 'compare');
+
+    if (tabId === 'compare') {
+      renderPlannerComparison();
+    } else {
+      renderPlannerDraft();
+    }
+  }
+
+  function renderPlannerDraft() {
+    const base = Number(state.presupuesto.montoBase) || 0;
+    if (els.plannerBaseAmount) {
+      els.plannerBaseAmount.value = base > 0 ? base.toLocaleString('es-CO') : '';
+    }
+
+    const sobres = state.presupuesto.sobres || [];
+    const assigned = sobres.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+    const assignedPct = base > 0 ? ((assigned / base) * 100).toFixed(1) : 0;
+    const remaining = base - assigned;
+    const remainingPct = base > 0 ? ((remaining / base) * 100).toFixed(1) : 100;
+
+    if (els.plannerAllocatedVal) els.plannerAllocatedVal.textContent = `${formatCOP(assigned)} (${assignedPct}%)`;
+    if (els.plannerRemainingVal) {
+      if (remaining >= 0) {
+        els.plannerRemainingVal.textContent = `${formatCOP(remaining)} (${remainingPct}%)`;
+        els.plannerRemainingVal.className = 'alloc-val text-green';
+        if (els.plannerRemainingLbl) els.plannerRemainingLbl.textContent = 'Por asignar';
+      } else {
+        els.plannerRemainingVal.textContent = `-${formatCOP(Math.abs(remaining))} (Excedido)`;
+        els.plannerRemainingVal.className = 'alloc-val text-danger';
+        if (els.plannerRemainingLbl) els.plannerRemainingLbl.textContent = 'Sobreasignado';
+      }
+    }
+
+    if (els.plannerAllocatedBar) {
+      const width = base > 0 ? Math.min(100, Math.round((assigned / base) * 100)) : 0;
+      els.plannerAllocatedBar.style.width = `${width}%`;
+      els.plannerAllocatedBar.classList.toggle('overflow', remaining < 0);
+    }
+
+    if (els.plannerEnvelopesCount) {
+      els.plannerEnvelopesCount.textContent = `${sobres.length} ${sobres.length === 1 ? 'rubro' : 'rubros'}`;
+    }
+
+    // Render Envelopes List
+    if (!els.plannerEnvelopesList) return;
+    els.plannerEnvelopesList.innerHTML = '';
+
+    if (!sobres.length) {
+      els.plannerEnvelopesList.innerHTML = `
+        <div class="list-placeholder" style="padding: 24px 12px; text-align: center;">
+          No has agregado rubros aún.<br>
+          <span style="font-size: 0.78rem; color: var(--text-tertiary);">Usa las plantillas rápidas de arriba o pulsa 'Agregar rubro'.</span>
+        </div>
+      `;
+      return;
+    }
+
+    const categoryKeys = Object.keys(CATEGORY_META);
+
+    sobres.forEach((sobre, idx) => {
+      const card = document.createElement('div');
+      card.className = 'envelope-card';
+
+      const isMonto = sobre.modo === 'monto';
+      const counterpartText = isMonto
+        ? `= ${base > 0 ? ((sobre.valor / base) * 100).toFixed(1) : 0}%`
+        : `= ${formatCOP(sobre.valor)}`;
+
+      const inputValue = isMonto
+        ? (sobre.valor ? parseInt(sobre.valor, 10).toLocaleString('es-CO') : '')
+        : (sobre.porcentaje || '');
+
+      let optionsHtml = '';
+      categoryKeys.forEach(cat => {
+        const selected = (sobre.categoria === cat) ? 'selected' : '';
+        const meta = CATEGORY_META[cat];
+        optionsHtml += `<option value="${escapeHtml(cat)}" ${selected}>${meta.icon} ${escapeHtml(cat)}</option>`;
+      });
+
+      card.innerHTML = `
+        <div class="envelope-top-row">
+          <select class="envelope-category-select" data-env-idx="${idx}">
+            ${optionsHtml}
+          </select>
+          <button type="button" class="btn-remove-envelope" data-remove-idx="${idx}" title="Eliminar rubro">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+        <div class="envelope-controls-row">
+          <div class="btn-mode-toggle">
+            <button type="button" class="btn-mode-opt ${isMonto ? 'active' : ''}" data-mode="monto" data-env-idx="${idx}">$ COP</button>
+            <button type="button" class="btn-mode-opt ${!isMonto ? 'active' : ''}" data-mode="porcentaje" data-env-idx="${idx}">%</button>
+          </div>
+          <div class="envelope-input-box">
+            <input type="text" class="envelope-input" inputmode="numeric" placeholder="${isMonto ? '0' : '0%'}" value="${inputValue}" data-env-idx="${idx}">
+          </div>
+          <span class="envelope-counterpart-label">${counterpartText}</span>
+        </div>
+      `;
+
+      // Event Listeners on Envelope Card
+      const catSelect = card.querySelector('.envelope-category-select');
+      catSelect.addEventListener('change', (e) => {
+        sobre.categoria = e.target.value;
+      });
+
+      const removeBtn = card.querySelector('.btn-remove-envelope');
+      removeBtn.addEventListener('click', () => {
+        triggerHaptic();
+        state.presupuesto.sobres.splice(idx, 1);
+        renderPlannerDraft();
+      });
+
+      const modeOpts = card.querySelectorAll('.btn-mode-opt');
+      modeOpts.forEach(btn => {
+        btn.addEventListener('click', () => {
+          triggerHaptic();
+          sobre.modo = btn.dataset.mode;
+          renderPlannerDraft();
+        });
+      });
+
+      const input = card.querySelector('.envelope-input');
+      input.addEventListener('input', (e) => {
+        const raw = e.target.value;
+        const currentBase = Number(state.presupuesto.montoBase) || 0;
+
+        if (sobre.modo === 'porcentaje') {
+          const num = parseFloat(raw.replace(/[^\d.]/g, '')) || 0;
+          sobre.porcentaje = Math.min(100, num);
+          sobre.valor = Math.round(currentBase * (sobre.porcentaje / 100));
+        } else {
+          const digits = raw.replace(/\D/g, '');
+          const val = parseInt(digits, 10) || 0;
+          e.target.value = val > 0 ? val.toLocaleString('es-CO') : '';
+          sobre.valor = val;
+          sobre.porcentaje = currentBase > 0 ? parseFloat(((val / currentBase) * 100).toFixed(1)) : 0;
+        }
+
+        const cpLbl = card.querySelector('.envelope-counterpart-label');
+        if (cpLbl) {
+          cpLbl.textContent = sobre.modo === 'porcentaje'
+            ? `= ${formatCOP(sobre.valor)}`
+            : `= ${currentBase > 0 ? ((sobre.valor / currentBase) * 100).toFixed(1) : 0}%`;
+        }
+
+        updateLiveAllocationBanner();
+      });
+
+      els.plannerEnvelopesList.appendChild(card);
+    });
+  }
+
+  function updateLiveAllocationBanner() {
+    const base = Number(state.presupuesto.montoBase) || 0;
+    const sobres = state.presupuesto.sobres || [];
+    const assigned = sobres.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+    const assignedPct = base > 0 ? ((assigned / base) * 100).toFixed(1) : 0;
+    const remaining = base - assigned;
+    const remainingPct = base > 0 ? ((remaining / base) * 100).toFixed(1) : 100;
+
+    if (els.plannerAllocatedVal) els.plannerAllocatedVal.textContent = `${formatCOP(assigned)} (${assignedPct}%)`;
+    if (els.plannerRemainingVal) {
+      if (remaining >= 0) {
+        els.plannerRemainingVal.textContent = `${formatCOP(remaining)} (${remainingPct}%)`;
+        els.plannerRemainingVal.className = 'alloc-val text-green';
+        if (els.plannerRemainingLbl) els.plannerRemainingLbl.textContent = 'Por asignar';
+      } else {
+        els.plannerRemainingVal.textContent = `-${formatCOP(Math.abs(remaining))} (Excedido)`;
+        els.plannerRemainingVal.className = 'alloc-val text-danger';
+        if (els.plannerRemainingLbl) els.plannerRemainingLbl.textContent = 'Sobreasignado';
+      }
+    }
+
+    if (els.plannerAllocatedBar) {
+      const width = base > 0 ? Math.min(100, Math.round((assigned / base) * 100)) : 0;
+      els.plannerAllocatedBar.style.width = `${width}%`;
+      els.plannerAllocatedBar.classList.toggle('overflow', remaining < 0);
+    }
+  }
+
+  function addEnvelope() {
+    triggerHaptic();
+    const existingCats = (state.presupuesto.sobres || []).map(s => s.categoria);
+    const allCats = Object.keys(CATEGORY_META);
+    const candidate = allCats.find(c => !existingCats.includes(c)) || 'Otros';
+
+    if (!state.presupuesto.sobres) state.presupuesto.sobres = [];
+    state.presupuesto.sobres.push({
+      id: `env-${Date.now()}`,
+      categoria: candidate,
+      modo: 'monto',
+      valor: 0,
+      porcentaje: 0
+    });
+    renderPlannerDraft();
+  }
+
+  function applyPreset(presetName) {
+    triggerHaptic();
+    let base = Number(state.presupuesto.montoBase) || 0;
+    if (base <= 0) {
+      base = state.resumen.totalIngresos > 0 ? state.resumen.totalIngresos : 2500000;
+      state.presupuesto.montoBase = base;
+      if (els.plannerBaseAmount) els.plannerBaseAmount.value = base.toLocaleString('es-CO');
+    }
+
+    if (presetName === '50-30-20') {
+      state.presupuesto.sobres = [
+        { id: `env-${Date.now()}-1`, categoria: 'Mercado / compras', modo: 'porcentaje', porcentaje: 50, valor: Math.round(base * 0.5) },
+        { id: `env-${Date.now()}-2`, categoria: 'Entretenimiento', modo: 'porcentaje', porcentaje: 30, valor: Math.round(base * 0.3) },
+        { id: `env-${Date.now()}-3`, categoria: 'Inversión', modo: 'porcentaje', porcentaje: 20, valor: Math.round(base * 0.2) }
+      ];
+      showToast('Plantilla 50/30/20 aplicada ✓');
+    } else if (presetName === '70-20-10') {
+      state.presupuesto.sobres = [
+        { id: `env-${Date.now()}-1`, categoria: 'Hogar', modo: 'porcentaje', porcentaje: 70, valor: Math.round(base * 0.7) },
+        { id: `env-${Date.now()}-2`, categoria: 'Inversión', modo: 'porcentaje', porcentaje: 20, valor: Math.round(base * 0.2) },
+        { id: `env-${Date.now()}-3`, categoria: 'Comida', modo: 'porcentaje', porcentaje: 10, valor: Math.round(base * 0.1) }
+      ];
+      showToast('Plantilla 70/20/10 aplicada ✓');
+    } else if (presetName === 'clear') {
+      state.presupuesto.sobres = [];
+      showToast('Borrador restablecido');
+    }
+
+    saveLocalCache();
+    renderPlannerDraft();
+    renderPlannerPreviewCard();
+  }
+
+  function renderPlannerComparison() {
+    const sobres = state.presupuesto.sobres || [];
+    const totalBudgeted = sobres.reduce((acc, s) => acc + (Number(s.valor) || 0), 0);
+
+    const now = new Date();
+    const curYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let monthGastos = state.gastos.filter(tx => tx.fecha && tx.fecha.startsWith(curYearMonth));
+    if (!monthGastos.length && state.gastos.length) {
+      monthGastos = [...state.gastos];
+    }
+
+    const actualCatSpent = {};
+    let totalActualSpent = 0;
+    monthGastos.forEach(tx => {
+      if (tx.tipo === 'Gasto' || !tx.tipo) {
+        const v = Number(tx.valor) || 0;
+        const cat = tx.categoria || 'Otros';
+        actualCatSpent[cat] = (actualCatSpent[cat] || 0) + v;
+        totalActualSpent += v;
+      }
+    });
+
+    const netDiff = totalBudgeted - totalActualSpent;
+
+    if (els.compareTotalBudgeted) els.compareTotalBudgeted.textContent = formatCOP(totalBudgeted);
+    if (els.compareTotalSpent) els.compareTotalSpent.textContent = formatCOP(totalActualSpent);
+    if (els.compareNetDiff) {
+      els.compareNetDiff.textContent = `${netDiff >= 0 ? '+' : ''}${formatCOP(netDiff)}`;
+      els.compareNetDiff.className = `metric-val ${netDiff >= 0 ? 'text-green' : 'text-danger'}`;
+    }
+
+    if (els.compareHeroBadge) {
+      if (totalBudgeted === 0) {
+        els.compareHeroBadge.textContent = 'Sin borrador';
+        els.compareHeroBadge.style.background = 'rgba(142,142,147,0.15)';
+        els.compareHeroBadge.style.color = 'var(--text-secondary)';
+      } else if (netDiff >= 0) {
+        els.compareHeroBadge.textContent = 'Dentro del plan ✓';
+        els.compareHeroBadge.style.background = 'rgba(52,199,89,0.2)';
+        els.compareHeroBadge.style.color = 'var(--ios-green)';
+      } else {
+        els.compareHeroBadge.textContent = 'Excedido ⚠️';
+        els.compareHeroBadge.style.background = 'rgba(255,59,48,0.2)';
+        els.compareHeroBadge.style.color = 'var(--ios-red)';
+      }
+    }
+
+    if (els.compareProgressBar) {
+      const execRatio = totalBudgeted > 0 ? Math.min(100, Math.round((totalActualSpent / totalBudgeted) * 100)) : 0;
+      els.compareProgressBar.style.width = `${execRatio}%`;
+      els.compareProgressBar.style.background = totalActualSpent > totalBudgeted ? 'var(--ios-red)' : 'linear-gradient(90deg, #34C759, #30D158)';
+    }
+
+    if (!els.plannerComparisonList) return;
+    els.plannerComparisonList.innerHTML = '';
+
+    if (!sobres.length) {
+      els.plannerComparisonList.innerHTML = '<div class="list-placeholder">No has configurado rubros en tu borrador.</div>';
+    } else {
+      sobres.forEach(sobre => {
+        const cat = sobre.categoria || 'Otros';
+        const planned = Number(sobre.valor) || 0;
+        const spent = actualCatSpent[cat] || 0;
+        const diff = planned - spent;
+        const ratio = planned > 0 ? Math.round((spent / planned) * 100) : 0;
+        const meta = CATEGORY_META[cat] || { icon: '📦', color: '#8E8E93' };
+
+        let tagClass = 'green';
+        let tagText = `+${formatCOP(diff)} disponible`;
+        let barColor = 'var(--ios-green)';
+
+        if (diff < 0) {
+          tagClass = 'red';
+          tagText = `-${formatCOP(Math.abs(diff))} excedido`;
+          barColor = 'var(--ios-red)';
+        } else if (ratio >= 85) {
+          tagClass = 'yellow';
+          tagText = `${formatCOP(diff)} restante (${ratio}%)`;
+          barColor = 'var(--ios-orange)';
+        }
+
+        const card = document.createElement('div');
+        card.className = 'compare-card';
+        card.innerHTML = `
+          <div class="compare-top-row">
+            <div class="compare-cat-title">
+              <span>${meta.icon}</span>
+              <span>${escapeHtml(cat)}</span>
+            </div>
+            <span class="compare-diff-tag ${tagClass}">${tagText}</span>
+          </div>
+          <div class="compare-amounts-row">
+            <span>Planeado: <strong>${formatCOP(planned)}</strong></span>
+            <span>Gastado: <strong>${formatCOP(spent)}</strong> (${ratio}%)</span>
+          </div>
+          <div class="compare-bar-track">
+            <div class="compare-bar-fill" style="width: ${Math.min(100, ratio)}%; background: ${barColor};"></div>
+          </div>
+        `;
+        els.plannerComparisonList.appendChild(card);
+      });
+    }
+
+    if (!els.plannerUnbudgetedList) return;
+    els.plannerUnbudgetedList.innerHTML = '';
+
+    const budgetedCatNames = sobres.map(s => s.categoria);
+    const unbudgetedCats = Object.keys(actualCatSpent).filter(c => !budgetedCatNames.includes(c));
+
+    if (!unbudgetedCats.length) {
+      els.plannerUnbudgetedList.innerHTML = '<div class="list-placeholder" style="padding: 12px; font-size: 0.78rem;">¡Excelente! Todos tus gastos del mes estuvieron cubiertos por tu borrador.</div>';
+    } else {
+      unbudgetedCats.forEach(cat => {
+        const spent = actualCatSpent[cat] || 0;
+        const meta = CATEGORY_META[cat] || { icon: '📦', color: '#8E8E93' };
+        const row = document.createElement('div');
+        row.className = 'compare-card';
+        row.style.background = 'var(--bg-secondary)';
+        row.innerHTML = `
+          <div class="compare-top-row">
+            <div class="compare-cat-title">
+              <span>${meta.icon}</span>
+              <span>${escapeHtml(cat)}</span>
+            </div>
+            <span class="compare-diff-tag red">Sin presupuestar</span>
+          </div>
+          <div class="compare-amounts-row">
+            <span>Gastado fuera de plan: <strong>${formatCOP(spent)}</strong></span>
+          </div>
+        `;
+        els.plannerUnbudgetedList.appendChild(row);
+      });
+    }
+  }
+
+  // =========================================================================
   // Formulario Polimórfico (Gasto, Ingreso, Inversión, Pago Deuda)
   // =========================================================================
 
@@ -2006,6 +2480,87 @@
       if (e.target === els.modalDetail) closeDetailModal();
     });
     els.btnModalDelete.addEventListener('click', deleteSelectedMovement);
+
+    // Money Allocator & Budget Planner Events
+    if (els.cardOpenPlanner) {
+      els.cardOpenPlanner.addEventListener('click', openPlannerModal);
+    }
+    if (els.btnCloseModalPlanner) {
+      els.btnCloseModalPlanner.addEventListener('click', closePlannerModal);
+    }
+    if (els.modalPresupuesto) {
+      els.modalPresupuesto.addEventListener('click', e => {
+        if (e.target === els.modalPresupuesto) closePlannerModal();
+      });
+    }
+
+    if (els.plannerTabBtns) {
+      els.plannerTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => switchPlannerTab(btn.dataset.tab));
+      });
+    }
+
+    if (els.btnUseMonthlyIncome) {
+      els.btnUseMonthlyIncome.addEventListener('click', () => {
+        triggerHaptic();
+        const inc = state.resumen.totalIngresos || 0;
+        if (inc > 0) {
+          state.presupuesto.montoBase = inc;
+          if (els.plannerBaseAmount) els.plannerBaseAmount.value = inc.toLocaleString('es-CO');
+          // Update envelopes values if any exist in percentage mode
+          (state.presupuesto.sobres || []).forEach(s => {
+            if (s.modo === 'porcentaje') {
+              s.valor = Math.round(inc * (s.porcentaje / 100));
+            } else if (inc > 0) {
+              s.porcentaje = parseFloat(((s.valor / inc) * 100).toFixed(1));
+            }
+          });
+          renderPlannerDraft();
+          showToast('Ingresos del mes aplicados ✓');
+        } else {
+          showToast('No hay ingresos registrados en el mes');
+        }
+      });
+    }
+
+    if (els.plannerBaseAmount) {
+      els.plannerBaseAmount.addEventListener('input', e => {
+        const digits = e.target.value.replace(/\D/g, '');
+        const val = parseInt(digits, 10) || 0;
+        e.target.value = val > 0 ? val.toLocaleString('es-CO') : '';
+        state.presupuesto.montoBase = val;
+
+        (state.presupuesto.sobres || []).forEach(s => {
+          if (s.modo === 'porcentaje') {
+            s.valor = Math.round(val * (s.porcentaje / 100));
+          } else if (val > 0) {
+            s.porcentaje = parseFloat(((s.valor / val) * 100).toFixed(1));
+          }
+        });
+
+        renderPlannerDraft();
+      });
+    }
+
+    if (els.presetChips) {
+      els.presetChips.forEach(chip => {
+        chip.addEventListener('click', () => applyPreset(chip.dataset.preset));
+      });
+    }
+
+    if (els.btnAddEnvelope) {
+      els.btnAddEnvelope.addEventListener('click', addEnvelope);
+    }
+
+    if (els.btnSavePlannerDraft) {
+      els.btnSavePlannerDraft.addEventListener('click', () => {
+        triggerHaptic();
+        saveLocalCache();
+        renderPlannerPreviewCard();
+        closePlannerModal();
+        showToast('Borrador guardado con éxito ✓');
+      });
+    }
   }
 
   function escapeHtml(str) {
