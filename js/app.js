@@ -86,7 +86,8 @@
       medioPago: 'Débito',
       cuenta: 'Otra',
       nota: '',
-      moneda: 'COP'
+      moneda: 'COP',
+      debtId: null
     }
   };
 
@@ -470,8 +471,8 @@
       const v = Number(g.valor) || 0;
       if (g.tipo === 'Ingreso') {
         totalI += v;
-      } else if (g.tipo === 'Inversión' || g.tipo === 'Pago Deuda') {
-        // Regla de Oro (Codex / GPT-6 Astra): No se computa como gasto de consumo
+      } else if (g.tipo === 'Inversión') {
+        // Los aportes de inversión no son gasto de consumo.
       } else {
         totalG += v;
         const cat = g.categoria || 'Otros';
@@ -662,7 +663,9 @@
     if (state.filterCategory && state.filterCategory !== 'all') {
       if (state.filterCategory.startsWith('type:')) {
         const type = state.filterCategory.replace('type:', '');
-        filtered = filtered.filter(tx => tx.tipo === type);
+        filtered = filtered.filter(tx => type === 'Gasto'
+          ? tx.tipo === 'Gasto' || tx.tipo === 'Pago Deuda' || !tx.tipo
+          : tx.tipo === type);
       } else {
         filtered = filtered.filter(tx => tx.categoria === state.filterCategory);
       }
@@ -903,6 +906,10 @@
           <div class="item-main-val" style="color: #FF5E5E;">${formatCOP(debt.saldoPendiente)}</div>
           <div class="item-delta">Cuota: ${formatCOP(debt.cuotaMensual)}</div>
           <div class="item-actions-row">
+            <button type="button" class="item-action-pay" data-pay-debt="${debt.id}" aria-label="Abonar a ${escapeHtml(debt.nombre)}">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Abonar</span>
+            </button>
             <button type="button" class="item-action-edit" data-edit-debt="${debt.id}">
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               <span>Editar</span>
@@ -911,6 +918,12 @@
           </div>
         </div>
       `;
+
+      row.querySelector('.item-action-pay').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic();
+        startDebtPayment(debt);
+      });
 
       row.querySelector('.item-action-edit').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -925,6 +938,27 @@
 
       els.debtsContainer.appendChild(row);
     });
+  }
+
+  function startDebtPayment(debt) {
+    const balance = Number(debt.saldoPendiente) || 0;
+    if (balance <= 0) {
+      showToast('Esta deuda ya no tiene saldo pendiente');
+      return;
+    }
+
+    updateMovementForm('Pago Deuda');
+    state.formData.debtId = debt.id;
+    state.formData.cuenta = debt.nombre;
+    els.formConcept.value = debt.nombre;
+    const suggestedAmount = Math.min(Number(debt.cuotaMensual) || 0, balance);
+    els.formAmount.value = suggestedAmount > 0 ? suggestedAmount.toLocaleString('es-CO') : '';
+    els.formNote.value = `Abono a ${debt.nombre}`;
+    switchTab('tab-agregar');
+    setTimeout(() => {
+      els.formAmount.focus();
+      els.formAmount.select();
+    }, 150);
   }
 
   // =========================================================================
@@ -1062,8 +1096,8 @@
       const val = Number(tx.valor) || 0;
       if (tx.tipo === 'Ingreso') {
         periodIngresos += val;
-      } else if (tx.tipo === 'Inversión' || tx.tipo === 'Pago Deuda') {
-        // Aportes patrimoniales no computan como gasto de consumo corriente
+      } else if (tx.tipo === 'Inversión') {
+        // Aportes de inversión no computan como gasto de consumo corriente.
       } else {
         periodGastos += val;
         const cat = tx.categoria || 'Otros';
@@ -1413,6 +1447,13 @@
 
     // Optimistic delete
     state.gastos = state.gastos.filter(g => g.id !== item.id);
+    if (item.tipo === 'Pago Deuda') {
+      const linkedDebt = state.deudas.find(d => d.nombre === item.cuenta)
+        || state.deudas.find(d => item.concepto.toLowerCase().includes(d.nombre.toLowerCase()));
+      if (linkedDebt) {
+        linkedDebt.saldoPendiente = (Number(linkedDebt.saldoPendiente) || 0) + (Number(item.valor) || 0);
+      }
+    }
     recalculateLocalResumen();
     saveLocalCache();
     renderAll();
@@ -1970,6 +2011,7 @@
 
   function updateMovementForm(type) {
     state.formData.tipo = type;
+    if (type !== 'Pago Deuda') state.formData.debtId = null;
     els.typeSegments.forEach(button => button.classList.toggle('active', button.dataset.type === type));
 
     const isExpense = type === 'Gasto';
@@ -2035,6 +2077,21 @@
       return;
     }
 
+    const selectedDebt = state.formData.tipo === 'Pago Deuda'
+      ? state.deudas.find(d => d.id === state.formData.debtId)
+        || state.deudas.find(d => concept.toLowerCase().includes(d.nombre.toLowerCase()))
+      : null;
+
+    if (state.formData.tipo === 'Pago Deuda' && !selectedDebt) {
+      showToast('Selecciona una deuda registrada para aplicar el abono');
+      return;
+    }
+
+    if (selectedDebt && amount > Number(selectedDebt.saldoPendiente || 0)) {
+      showToast(`El abono supera el saldo de ${formatCOP(selectedDebt.saldoPendiente)}`);
+      return;
+    }
+
     triggerHaptic();
 
     const newTx = {
@@ -2045,7 +2102,7 @@
       concepto: concept,
       categoria: state.formData.categoria || 'Otros',
       medioPago: state.formData.medioPago || 'Débito',
-      cuenta: state.formData.cuenta || 'Otra',
+      cuenta: selectedDebt ? selectedDebt.nombre : (state.formData.cuenta || 'Otra'),
       nota: els.formNote.value.trim(),
       tipo: state.formData.tipo,
       moneda: 'COP'
@@ -2062,9 +2119,8 @@
         matchInv.montoInvertido = (Number(matchInv.montoInvertido) || 0) + amount;
       }
     } else if (state.formData.tipo === 'Pago Deuda') {
-      const matchDebt = state.deudas.find(d => concept.toLowerCase().includes(d.nombre.toLowerCase()));
-      if (matchDebt) {
-        matchDebt.saldoPendiente = Math.max(0, (Number(matchDebt.saldoPendiente) || 0) - amount);
+      if (selectedDebt) {
+        selectedDebt.saldoPendiente = Math.max(0, (Number(selectedDebt.saldoPendiente) || 0) - amount);
       }
     }
 
@@ -2076,6 +2132,7 @@
     els.formAmount.value = '';
     els.formConcept.value = '';
     els.formNote.value = '';
+    state.formData.debtId = null;
     showToast('Movimiento registrado con éxito ✓');
     switchTab('tab-inicio');
 

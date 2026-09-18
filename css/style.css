@@ -1825,7 +1825,8 @@ body.privacy-active .pat-badge {
   margin-top: 6px;
 }
 
-.item-action-edit {
+.item-action-edit,
+.item-action-pay {
   background: rgba(0, 122, 255, 0.1);
   color: var(--ios-blue);
   border: none;
@@ -1838,11 +1839,22 @@ body.privacy-active .pat-badge {
   align-items: center;
   gap: 4px;
   transition: all 0.15s ease;
+  min-height: 44px;
+}
+
+.item-action-pay {
+  background: rgba(175, 82, 222, 0.14);
+  color: var(--ios-purple);
 }
 
 .item-action-edit:active {
   transform: scale(0.96);
   background: rgba(0, 122, 255, 0.2);
+}
+
+.item-action-pay:active {
+  transform: scale(0.96);
+  background: rgba(175, 82, 222, 0.24);
 }
 
 .patrimonio-empty-state {
