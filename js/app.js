@@ -41,79 +41,20 @@
 
   const PALETTE = ['#FF9500', '#34C759', '#FF3B30', '#007AFF', '#5856D6', '#AF52DE', '#30B0C7', '#FF2D55', '#FFCC00', '#A2845E'];
 
-  // Semillas demo para que Inversiones y Deudas sean inmediatamente funcionales
-  const DEFAULT_INVERSIONES = [
-    {
-      id: 'inv-1',
-      nombre: 'CDT Bancolombia',
-      tipo: 'Renta Fija',
-      institucion: 'Bancolombia',
-      montoInvertido: 5000000,
-      valorActual: 5430000,
-      tasaEA: 11.5,
-      fechaVencimiento: '2026-11-20',
-      moneda: 'COP'
-    },
-    {
-      id: 'inv-2',
-      nombre: 'Nu Cajita Remunerada',
-      tipo: 'Ahorro',
-      institucion: 'Nu',
-      montoInvertido: 2500000,
-      valorActual: 2680000,
-      tasaEA: 13.0,
-      fechaVencimiento: '',
-      moneda: 'COP'
-    },
-    {
-      id: 'inv-3',
-      nombre: 'S&P 500 Index (VOO)',
-      tipo: 'Renta Variable',
-      institucion: 'Hapi',
-      montoInvertido: 3500000,
-      valorActual: 3950000,
-      tasaEA: 14.8,
-      fechaVencimiento: '',
-      moneda: 'COP'
-    }
-  ];
-
-  const DEFAULT_DEUDAS = [
-    {
-      id: 'deb-1',
-      nombre: 'Tarjeta Nu Mastercard',
-      tipo: 'Tarjeta',
-      entidad: 'Nu',
-      saldoPendiente: 1850000,
-      cupoTotal: 6000000,
-      tasaEA: 24.8,
-      cuotaMensual: 185000,
-      diaCorte: 15,
-      diaPago: 25,
-      estado: 'Activa'
-    },
-    {
-      id: 'deb-2',
-      nombre: 'Crédito Libre Inversión',
-      tipo: 'Consumo',
-      entidad: 'Bancolombia',
-      saldoPendiente: 3200000,
-      cupoTotal: 4500000,
-      tasaEA: 18.2,
-      cuotaMensual: 210000,
-      diaCorte: 28,
-      diaPago: 5,
-      estado: 'Activa'
-    }
-  ];
+  // Semillas limpias: Inversiones y Deudas inician en blanco
+  const DEFAULT_INVERSIONES = [];
+  const DEFAULT_DEUDAS = [];
 
   // Application State
   const state = {
     accessPin: localStorage.getItem('finanzas_access_pin') || '',
     privacyMode: localStorage.getItem('finanzas_privacy') === 'true',
     gastos: [],
-    inversiones: JSON.parse(localStorage.getItem('finanzas_inversiones') || 'null') || DEFAULT_INVERSIONES,
-    deudas: JSON.parse(localStorage.getItem('finanzas_deudas') || 'null') || DEFAULT_DEUDAS,
+    inversiones: JSON.parse(localStorage.getItem('finanzas_inversiones') || '[]') || [],
+    deudas: JSON.parse(localStorage.getItem('finanzas_deudas') || '[]') || [],
+    editingInvId: null,
+    editingDebtId: null,
+    analyticsPeriod: 'month',
     resumen: {
       mesActual: 'Septiembre 2026',
       totalGastos: 73800,
@@ -238,10 +179,34 @@
     simTimeSaved: document.getElementById('sim-time-saved'),
     debtsContainer: document.getElementById('debts-container'),
 
-    // Analytics
+    // Analytics 2.0
+    analyticsPeriodControl: document.getElementById('analytics-period-control'),
+    kpiSavingsRate: document.getElementById('kpi-savings-rate'),
+    kpiSavingsBadge: document.getElementById('kpi-savings-badge'),
+    kpiDailyAvg: document.getElementById('kpi-daily-avg'),
+    kpiDailySub: document.getElementById('kpi-daily-sub'),
+    kpiPeakDay: document.getElementById('kpi-peak-day'),
+    kpiPeakDayAmount: document.getElementById('kpi-peak-day-amount'),
+    kpiPeriodBalance: document.getElementById('kpi-period-balance'),
+    kpiPeriodBalanceSub: document.getElementById('kpi-period-balance-sub'),
+    timelineBarsContainer: document.getElementById('timeline-bars-container'),
+    timelineChartSubtitle: document.getElementById('timeline-chart-subtitle'),
+    timelineAvgBadge: document.getElementById('timeline-avg-badge'),
     analyticsDonut: document.getElementById('chart-analytics-donut'),
+    analyticsDonutCenter: document.getElementById('analytics-donut-center'),
+    donutCenterCategoryLabel: document.getElementById('donut-center-category-label'),
+    donutCenterCategoryVal: document.getElementById('donut-center-category-val'),
+    donutCenterCategorySub: document.getElementById('donut-center-category-sub'),
     analyticsCategories: document.getElementById('analytics-categories-list'),
     analyticsPayments: document.getElementById('analytics-payments-bars'),
+    netWorthBadge: document.getElementById('net-worth-badge'),
+    nwTotalAssets: document.getElementById('nw-total-assets'),
+    nwNetWorth: document.getElementById('nw-net-worth'),
+    nwTotalLiabilities: document.getElementById('nw-total-liabilities'),
+    nwBarAsset: document.getElementById('nw-bar-asset'),
+    nwBarDebt: document.getElementById('nw-bar-debt'),
+    nwRatioText: document.getElementById('nw-ratio-text'),
+    analyticsTopExpenses: document.getElementById('analytics-top-expenses'),
 
     // Modals
     modalDetail: document.getElementById('modal-detail'),
@@ -258,11 +223,17 @@
     btnModalDelete: document.getElementById('btn-modal-delete'),
 
     modalInversion: document.getElementById('modal-inversion'),
+    modalInvTitle: document.getElementById('modal-inv-title'),
     formInversion: document.getElementById('form-inversion'),
+    btnSaveInvText: document.getElementById('btn-save-inv-text'),
+    btnDeleteInv: document.getElementById('btn-delete-inv'),
     btnCloseModalInv: document.getElementById('btn-close-modal-inv'),
 
     modalDeuda: document.getElementById('modal-deuda'),
+    modalDebtTitle: document.getElementById('modal-debt-title'),
     formDeuda: document.getElementById('form-deuda'),
+    btnSaveDebtText: document.getElementById('btn-save-debt-text'),
+    btnDeleteDebt: document.getElementById('btn-delete-debt'),
     btnCloseModalDebt: document.getElementById('btn-close-modal-debt'),
 
     modalValUpdate: document.getElementById('modal-val-update'),
@@ -380,10 +351,24 @@
         }
       }
       const invLocal = localStorage.getItem('finanzas_inversiones');
-      if (invLocal) state.inversiones = JSON.parse(invLocal);
+      if (invLocal) {
+        state.inversiones = JSON.parse(invLocal) || [];
+      }
+      // Purgar semillas demo anteriores si existían en caché
+      const dummyInvIds = ['inv-1', 'inv-2', 'inv-3'];
+      state.inversiones = (state.inversiones || []).filter(i => !dummyInvIds.includes(i.id));
 
       const debLocal = localStorage.getItem('finanzas_deudas');
-      if (debLocal) state.deudas = JSON.parse(debLocal);
+      if (debLocal) {
+        state.deudas = JSON.parse(debLocal) || [];
+      }
+      // Purgar semillas demo anteriores si existían en caché
+      const dummyDebtIds = ['deb-1', 'deb-2'];
+      state.deudas = (state.deudas || []).filter(d => !dummyDebtIds.includes(d.id));
+
+      // Guardar depuración en caché
+      localStorage.setItem('finanzas_inversiones', JSON.stringify(state.inversiones));
+      localStorage.setItem('finanzas_deudas', JSON.stringify(state.deudas));
     } catch (e) {
       console.warn('Error al leer caché local:', e);
     }
@@ -746,7 +731,21 @@
     // Holdings list
     els.investmentsContainer.innerHTML = '';
     if (!state.inversiones.length) {
-      els.investmentsContainer.innerHTML = '<div class="list-placeholder">No hay inversiones registradas.</div>';
+      els.investmentsContainer.innerHTML = `
+        <div class="patrimonio-empty-state">
+          <div class="empty-state-icon">📈</div>
+          <div class="empty-state-title">Sin inversiones registradas</div>
+          <div class="empty-state-desc">Lleva el control de tus cuentas remuneradas, CDTs, acciones o fondos.</div>
+          <button type="button" class="btn-empty-action" id="btn-empty-add-inv">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Registrar inversión</span>
+          </button>
+        </div>
+      `;
+      document.getElementById('btn-empty-add-inv')?.addEventListener('click', () => {
+        triggerHaptic();
+        openInvModal();
+      });
       return;
     }
 
@@ -757,6 +756,7 @@
 
       const row = document.createElement('div');
       row.className = 'investment-item';
+      row.style.cursor = 'pointer';
       row.innerHTML = `
         <div class="item-info">
           <div class="item-title">${icon} ${escapeHtml(inv.nombre)}</div>
@@ -771,7 +771,13 @@
           <div class="item-delta ${profit >= 0 ? 'text-green' : 'text-danger'}">
             ${profit >= 0 ? '+' : ''}${formatCOP(profit)} (${profitPct}%)
           </div>
-          <button class="item-action-link" data-inv-id="${inv.id}">Actualizar saldo</button>
+          <div class="item-actions-row">
+            <button type="button" class="item-action-edit" data-edit-inv="${inv.id}">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <span>Editar</span>
+            </button>
+            <button type="button" class="item-action-link" data-inv-id="${inv.id}">Saldo</button>
+          </div>
         </div>
       `;
 
@@ -779,6 +785,17 @@
         e.stopPropagation();
         triggerHaptic();
         openValUpdateModal(inv);
+      });
+
+      row.querySelector('.item-action-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic();
+        openInvModal(inv);
+      });
+
+      row.addEventListener('click', () => {
+        triggerHaptic();
+        openInvModal(inv);
       });
 
       els.investmentsContainer.appendChild(row);
@@ -799,7 +816,21 @@
     // Debts List
     els.debtsContainer.innerHTML = '';
     if (!state.deudas.length) {
-      els.debtsContainer.innerHTML = '<div class="list-placeholder">No hay deudas registradas. ¡Estás libre de deudas!</div>';
+      els.debtsContainer.innerHTML = `
+        <div class="patrimonio-empty-state">
+          <div class="empty-state-icon">🎉</div>
+          <div class="empty-state-title">¡Estás libre de deudas!</div>
+          <div class="empty-state-desc">No tienes compromisos pendientes o aún no has registrado tus créditos o tarjetas.</div>
+          <button type="button" class="btn-empty-action" id="btn-empty-add-debt">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Registrar deuda</span>
+          </button>
+        </div>
+      `;
+      document.getElementById('btn-empty-add-debt')?.addEventListener('click', () => {
+        triggerHaptic();
+        openDebtModal();
+      });
       return;
     }
 
@@ -812,6 +843,7 @@
 
       const row = document.createElement('div');
       row.className = 'debt-item';
+      row.style.cursor = 'pointer';
       row.innerHTML = `
         <div class="item-info">
           <div class="item-title">💳 ${escapeHtml(debt.nombre)}</div>
@@ -827,9 +859,27 @@
         <div class="item-amount-col">
           <div class="item-main-val" style="color: #FF5E5E;">${formatCOP(debt.saldoPendiente)}</div>
           <div class="item-delta">Cuota: ${formatCOP(debt.cuotaMensual)}</div>
-          <div style="font-size: 0.68rem; color: var(--text-secondary); margin-top: 3px;">Cupo: ${util}% usado</div>
+          <div class="item-actions-row">
+            <button type="button" class="item-action-edit" data-edit-debt="${debt.id}">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <span>Editar</span>
+            </button>
+            <span style="font-size: 0.68rem; color: var(--text-secondary);">${util}% cupo</span>
+          </div>
         </div>
       `;
+
+      row.querySelector('.item-action-edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic();
+        openDebtModal(debt);
+      });
+
+      row.addEventListener('click', () => {
+        triggerHaptic();
+        openDebtModal(debt);
+      });
+
       els.debtsContainer.appendChild(row);
     });
   }
@@ -921,15 +971,195 @@
   }
 
   // =========================================================================
-  // Analytics
+  // =========================================================================
+  // Analytics 2.0: Comprehensive Financial Intelligence Center
   // =========================================================================
 
   function renderAnalyticsView() {
-    renderDonutChart(els.analyticsDonut, state.resumen.porCategoria, 200, 28, CATEGORY_META);
+    const period = state.analyticsPeriod || 'month';
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let filteredGastos = [...state.gastos];
+
+    if (period === 'month') {
+      const yearMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+      const monthTxs = state.gastos.filter(tx => tx.fecha && tx.fecha.startsWith(yearMonthStr));
+      if (monthTxs.length > 0) {
+        filteredGastos = monthTxs;
+      } else if (state.gastos.length > 0) {
+        const latestTx = state.gastos.find(tx => tx.fecha);
+        if (latestTx && latestTx.fecha) {
+          const ym = latestTx.fecha.substring(0, 7);
+          filteredGastos = state.gastos.filter(tx => tx.fecha && tx.fecha.startsWith(ym));
+        }
+      }
+    } else if (period === 'quarter') {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 90);
+      const cutoffStr = cutoff.toISOString().substring(0, 10);
+      filteredGastos = state.gastos.filter(tx => tx.fecha && tx.fecha >= cutoffStr);
+      if (!filteredGastos.length && state.gastos.length) filteredGastos = [...state.gastos];
+    } else if (period === 'year') {
+      const yearStr = `${currentYear}`;
+      filteredGastos = state.gastos.filter(tx => tx.fecha && tx.fecha.startsWith(yearStr));
+      if (!filteredGastos.length && state.gastos.length) filteredGastos = [...state.gastos];
+    }
+
+    let periodGastos = 0;
+    let periodIngresos = 0;
+    const catMap = {};
+    const medMap = {};
+    const dailyMap = {};
+    const dayOfWeekMap = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+    const dayNames = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
+
+    filteredGastos.forEach(tx => {
+      const val = Number(tx.valor) || 0;
+      if (tx.tipo === 'Ingreso') {
+        periodIngresos += val;
+      } else if (tx.tipo === 'Inversión' || tx.tipo === 'Pago Deuda') {
+        // Aportes patrimoniales no computan como gasto de consumo corriente
+      } else {
+        periodGastos += val;
+        const cat = tx.categoria || 'Otros';
+        const med = tx.medioPago || 'Efectivo';
+        catMap[cat] = (catMap[cat] || 0) + val;
+        medMap[med] = (medMap[med] || 0) + val;
+
+        if (tx.fecha) {
+          dailyMap[tx.fecha] = (dailyMap[tx.fecha] || 0) + val;
+          try {
+            const [y, m, d] = tx.fecha.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            const dow = dt.getDay();
+            dayOfWeekMap[dow] = (dayOfWeekMap[dow] || 0) + val;
+          } catch (_) {}
+        }
+      }
+    });
+
+    const periodBalance = periodIngresos - periodGastos;
+    const savingsRate = periodIngresos > 0 ? Math.round(((periodIngresos - periodGastos) / periodIngresos) * 100) : 0;
+    const distinctDaysCount = Math.max(1, Object.keys(dailyMap).length);
+    const dailyAvg = Math.round(periodGastos / distinctDaysCount);
+
+    let peakDayIdx = 5;
+    let peakDayVal = -1;
+    for (let i = 0; i < 7; i++) {
+      if (dayOfWeekMap[i] > peakDayVal) {
+        peakDayVal = dayOfWeekMap[i];
+        peakDayIdx = i;
+      }
+    }
+
+    // Render KPIs
+    if (els.kpiSavingsRate) {
+      els.kpiSavingsRate.textContent = `${savingsRate}%`;
+      els.kpiSavingsRate.style.color = savingsRate >= 20 ? 'var(--ios-green)' : (savingsRate >= 0 ? 'var(--ios-blue)' : 'var(--ios-red)');
+    }
+    if (els.kpiSavingsBadge) {
+      if (periodIngresos === 0) {
+        els.kpiSavingsBadge.textContent = 'Sin ingresos reg.';
+        els.kpiSavingsBadge.style.background = 'rgba(142,142,147,0.15)';
+        els.kpiSavingsBadge.style.color = 'var(--text-secondary)';
+      } else if (savingsRate >= 25) {
+        els.kpiSavingsBadge.textContent = 'Excelente ⭐';
+        els.kpiSavingsBadge.style.background = 'rgba(52,199,89,0.2)';
+        els.kpiSavingsBadge.style.color = 'var(--ios-green)';
+      } else if (savingsRate >= 10) {
+        els.kpiSavingsBadge.textContent = 'Saludable ✓';
+        els.kpiSavingsBadge.style.background = 'rgba(0,122,255,0.2)';
+        els.kpiSavingsBadge.style.color = 'var(--ios-blue)';
+      } else if (savingsRate >= 0) {
+        els.kpiSavingsBadge.textContent = 'Ajustada ⚠️';
+        els.kpiSavingsBadge.style.background = 'rgba(255,149,0,0.2)';
+        els.kpiSavingsBadge.style.color = 'var(--ios-orange)';
+      } else {
+        els.kpiSavingsBadge.textContent = 'Déficit 🚨';
+        els.kpiSavingsBadge.style.background = 'rgba(255,59,48,0.2)';
+        els.kpiSavingsBadge.style.color = 'var(--ios-red)';
+      }
+    }
+
+    if (els.kpiDailyAvg) els.kpiDailyAvg.textContent = formatCOP(dailyAvg);
+    if (els.kpiDailySub) els.kpiDailySub.textContent = `En ${distinctDaysCount} días con registro`;
+
+    if (els.kpiPeakDay) els.kpiPeakDay.textContent = peakDayVal > 0 ? dayNames[peakDayIdx] : '-';
+    if (els.kpiPeakDayAmount) els.kpiPeakDayAmount.textContent = peakDayVal > 0 ? `${formatCOP(peakDayVal)} acumulado` : 'Sin registros';
+
+    if (els.kpiPeriodBalance) {
+      els.kpiPeriodBalance.textContent = `${periodBalance >= 0 ? '+' : ''}${formatCOP(periodBalance)}`;
+      els.kpiPeriodBalance.style.color = periodBalance >= 0 ? 'var(--ios-green)' : 'var(--ios-red)';
+    }
+    if (els.kpiPeriodBalanceSub) {
+      els.kpiPeriodBalanceSub.textContent = `+${formatCOP(periodIngresos)} / -${formatCOP(periodGastos)}`;
+    }
+
+    renderTimelineChart(dailyMap, dailyAvg);
+
+    const periodCatData = Object.entries(catMap).map(([categoria, valor]) => ({ categoria, valor }));
+    renderInteractiveDonut(periodCatData, periodGastos);
+    renderPaymentBreakdown(medMap);
+    renderPatrimonialStructure();
+    renderTopExpenses(filteredGastos);
+  }
+
+  function renderTimelineChart(dailyMap, avgExpense) {
+    if (!els.timelineBarsContainer) return;
+    els.timelineBarsContainer.innerHTML = '';
+
+    const dates = Object.keys(dailyMap).sort();
+    if (!dates.length) {
+      els.timelineBarsContainer.innerHTML = '<div class="list-placeholder" style="width: 100%; text-align: center;">No hay gastos registrados en este período.</div>';
+      if (els.timelineAvgBadge) els.timelineAvgBadge.textContent = 'Prom: $0/d';
+      return;
+    }
+
+    if (els.timelineAvgBadge) els.timelineAvgBadge.textContent = `Prom: ${formatCOP(avgExpense)}/d`;
+
+    const maxVal = Math.max(...Object.values(dailyMap), 1);
+
+    dates.forEach(dtStr => {
+      const val = dailyMap[dtStr];
+      const heightPct = Math.max(8, Math.min(100, Math.round((val / maxVal) * 100)));
+      const dayNum = dtStr.split('-')[2] || dtStr;
+
+      const col = document.createElement('div');
+      col.className = 'timeline-bar-col';
+      col.innerHTML = `
+        <div class="timeline-bar-tooltip">${dayNum}: ${formatCOP(val)}</div>
+        <div class="timeline-bar-fill" style="height: ${heightPct}%;"></div>
+        <span class="timeline-bar-lbl">${dayNum}</span>
+      `;
+
+      col.addEventListener('click', () => {
+        triggerHaptic();
+        col.parentElement.querySelectorAll('.timeline-bar-col').forEach(c => c.classList.remove('selected'));
+        col.classList.add('selected');
+        showToast(`${dtStr}: ${formatCOP(val)}`);
+      });
+
+      els.timelineBarsContainer.appendChild(col);
+    });
+
+    setTimeout(() => {
+      els.timelineBarsContainer.scrollLeft = els.timelineBarsContainer.scrollWidth;
+    }, 50);
+  }
+
+  function renderInteractiveDonut(catData, totalGastos) {
+    if (!els.analyticsDonut) return;
+    renderDonutChart(els.analyticsDonut, catData, 220, 28, CATEGORY_META);
+
+    if (els.donutCenterCategoryLabel) els.donutCenterCategoryLabel.textContent = 'Total Gastos';
+    if (els.donutCenterCategoryVal) els.donutCenterCategoryVal.textContent = formatCOP(totalGastos);
+    if (els.donutCenterCategorySub) els.donutCenterCategorySub.textContent = `${catData.length} categorías`;
 
     els.analyticsCategories.innerHTML = '';
-    const sorted = [...state.resumen.porCategoria].sort((a, b) => b.valor - a.valor);
-    const totalG = state.resumen.totalGastos || 1;
+    const sorted = [...catData].sort((a, b) => b.valor - a.valor);
+    const totalG = totalGastos || 1;
 
     sorted.forEach(cat => {
       const pct = Math.round((cat.valor / totalG) * 100);
@@ -947,12 +1177,25 @@
           <div class="progress-bar-fill" style="width: ${pct}%; background-color: ${color}"></div>
         </div>
       `;
+
+      row.addEventListener('click', () => {
+        triggerHaptic();
+        if (els.donutCenterCategoryLabel) els.donutCenterCategoryLabel.textContent = cat.categoria;
+        if (els.donutCenterCategoryVal) els.donutCenterCategoryVal.textContent = formatCOP(cat.valor);
+        if (els.donutCenterCategorySub) els.donutCenterCategorySub.textContent = `${pct}% del total`;
+      });
+
       els.analyticsCategories.appendChild(row);
     });
+  }
 
+  function renderPaymentBreakdown(medMap) {
+    if (!els.analyticsPayments) return;
     els.analyticsPayments.innerHTML = '';
-    const totalMed = state.resumen.porMedio.reduce((acc, m) => acc + (m.valor || 0), 0) || 1;
-    state.resumen.porMedio.forEach(med => {
+    const items = Object.entries(medMap).map(([medio, valor]) => ({ medio, valor }));
+    const totalMed = items.reduce((acc, m) => acc + m.valor, 0) || 1;
+
+    items.sort((a, b) => b.valor - a.valor).forEach(med => {
       const pct = Math.round((med.valor / totalMed) * 100);
       const row = document.createElement('div');
       row.className = 'analytics-row';
@@ -966,6 +1209,84 @@
         </div>
       `;
       els.analyticsPayments.appendChild(row);
+    });
+  }
+
+  function renderPatrimonialStructure() {
+    const pat = calculatePatrimonioTotals();
+    const assets = pat.totalInvMarket;
+    const debt = pat.totalDebt;
+    const netWorth = assets - debt;
+    const sum = assets + debt;
+
+    if (els.nwTotalAssets) els.nwTotalAssets.textContent = formatCOP(assets);
+    if (els.nwTotalLiabilities) els.nwTotalLiabilities.textContent = formatCOP(debt);
+    if (els.nwNetWorth) {
+      els.nwNetWorth.textContent = `${netWorth >= 0 ? '+' : ''}${formatCOP(netWorth)}`;
+      els.nwNetWorth.style.color = netWorth >= 0 ? 'var(--ios-green)' : 'var(--ios-red)';
+    }
+
+    if (els.netWorthBadge) {
+      if (assets === 0 && debt === 0) {
+        els.netWorthBadge.textContent = 'En blanco';
+        els.netWorthBadge.style.background = 'rgba(142,142,147,0.15)';
+        els.netWorthBadge.style.color = 'var(--text-secondary)';
+      } else if (netWorth >= 0) {
+        els.netWorthBadge.textContent = 'Solvente ✓';
+        els.netWorthBadge.style.background = 'rgba(52,199,89,0.2)';
+        els.netWorthBadge.style.color = 'var(--ios-green)';
+      } else {
+        els.netWorthBadge.textContent = 'Endeudado ⚠️';
+        els.netWorthBadge.style.background = 'rgba(255,59,48,0.2)';
+        els.netWorthBadge.style.color = 'var(--ios-red)';
+      }
+    }
+
+    const assetPct = sum > 0 ? Math.round((assets / sum) * 100) : 50;
+    const debtPct = sum > 0 ? (100 - assetPct) : 50;
+
+    if (els.nwBarAsset) els.nwBarAsset.style.width = `${assetPct}%`;
+    if (els.nwBarDebt) els.nwBarDebt.style.width = `${debtPct}%`;
+
+    if (els.nwRatioText) {
+      const leverageRatio = assets > 0 ? Math.round((debt / assets) * 100) : (debt > 0 ? 100 : 0);
+      els.nwRatioText.textContent = `Apalancamiento: ${leverageRatio}% (Pasivos / Activos)`;
+    }
+  }
+
+  function renderTopExpenses(txs) {
+    if (!els.analyticsTopExpenses) return;
+    els.analyticsTopExpenses.innerHTML = '';
+
+    const expensesOnly = txs.filter(tx => tx.tipo === 'Gasto' || !tx.tipo);
+    if (!expensesOnly.length) {
+      els.analyticsTopExpenses.innerHTML = '<div class="list-placeholder">No hay gastos en este período.</div>';
+      return;
+    }
+
+    const top5 = [...expensesOnly].sort((a, b) => Number(b.valor) - Number(a.valor)).slice(0, 5);
+
+    top5.forEach((tx, idx) => {
+      const icon = (CATEGORY_META[tx.categoria] && CATEGORY_META[tx.categoria].icon) || '📦';
+      const row = document.createElement('div');
+      row.className = 'top-expense-row';
+      row.innerHTML = `
+        <div class="top-expense-left">
+          <div class="top-expense-rank">#${idx + 1}</div>
+          <div class="top-expense-info">
+            <span class="top-expense-concept">${icon} ${escapeHtml(tx.concepto)}</span>
+            <span class="top-expense-meta">${escapeHtml(tx.categoria || 'Gasto')} • ${tx.fecha || ''}</span>
+          </div>
+        </div>
+        <div class="top-expense-val">-${formatCOP(tx.valor)}</div>
+      `;
+
+      row.addEventListener('click', () => {
+        triggerHaptic();
+        openDetailModal(tx);
+      });
+
+      els.analyticsTopExpenses.appendChild(row);
     });
   }
 
@@ -1070,22 +1391,90 @@
   // Modales Inversión, Deuda & Actualización de Saldo
   // =========================================================================
 
-  function openAddInvModal() {
+  function openInvModal(inv = null) {
+    if (inv) {
+      state.editingInvId = inv.id;
+      if (els.modalInvTitle) els.modalInvTitle.textContent = 'Editar Inversión';
+      if (els.btnSaveInvText) els.btnSaveInvText.textContent = 'Guardar cambios';
+      if (els.btnDeleteInv) els.btnDeleteInv.style.display = 'flex';
+
+      document.getElementById('inv-nombre').value = inv.nombre || '';
+      document.getElementById('inv-tipo').value = inv.tipo || 'Renta Fija';
+      document.getElementById('inv-institucion').value = inv.institucion || '';
+      document.getElementById('inv-monto').value = parseInt(inv.montoInvertido, 10).toLocaleString('es-CO');
+      document.getElementById('inv-valor-actual').value = parseInt(inv.valorActual, 10).toLocaleString('es-CO');
+      document.getElementById('inv-tasa').value = inv.tasaEA !== null && inv.tasaEA !== undefined ? inv.tasaEA : '';
+      document.getElementById('inv-vencimiento').value = inv.fechaVencimiento || '';
+    } else {
+      state.editingInvId = null;
+      if (els.modalInvTitle) els.modalInvTitle.textContent = 'Nueva Inversión';
+      if (els.btnSaveInvText) els.btnSaveInvText.textContent = 'Guardar inversión';
+      if (els.btnDeleteInv) els.btnDeleteInv.style.display = 'none';
+      els.formInversion.reset();
+    }
     els.modalInversion.classList.add('active');
+    setTimeout(() => document.getElementById('inv-nombre').focus(), 150);
   }
 
-  function closeAddInvModal() {
+  function closeInvModal() {
     els.modalInversion.classList.remove('active');
+    state.editingInvId = null;
     els.formInversion.reset();
   }
 
-  function openAddDebtModal() {
+  function openDebtModal(debt = null) {
+    if (debt) {
+      state.editingDebtId = debt.id;
+      if (els.modalDebtTitle) els.modalDebtTitle.textContent = 'Editar Deuda / Crédito';
+      if (els.btnSaveDebtText) els.btnSaveDebtText.textContent = 'Guardar cambios';
+      if (els.btnDeleteDebt) els.btnDeleteDebt.style.display = 'flex';
+
+      document.getElementById('debt-nombre').value = debt.nombre || '';
+      document.getElementById('debt-tipo').value = debt.tipo || 'Tarjeta';
+      document.getElementById('debt-entidad').value = debt.entidad || '';
+      document.getElementById('debt-saldo').value = parseInt(debt.saldoPendiente, 10).toLocaleString('es-CO');
+      document.getElementById('debt-cupo').value = debt.cupoTotal ? parseInt(debt.cupoTotal, 10).toLocaleString('es-CO') : '';
+      document.getElementById('debt-tasa').value = debt.tasaEA !== null && debt.tasaEA !== undefined ? debt.tasaEA : '';
+      document.getElementById('debt-cuota').value = debt.cuotaMensual ? parseInt(debt.cuotaMensual, 10).toLocaleString('es-CO') : '';
+      document.getElementById('debt-dia-corte').value = debt.diaCorte || '';
+      document.getElementById('debt-dia-pago').value = debt.diaPago || '';
+    } else {
+      state.editingDebtId = null;
+      if (els.modalDebtTitle) els.modalDebtTitle.textContent = 'Nueva Deuda / Crédito';
+      if (els.btnSaveDebtText) els.btnSaveDebtText.textContent = 'Guardar deuda';
+      if (els.btnDeleteDebt) els.btnDeleteDebt.style.display = 'none';
+      els.formDeuda.reset();
+    }
     els.modalDeuda.classList.add('active');
+    setTimeout(() => document.getElementById('debt-nombre').focus(), 150);
   }
 
-  function closeAddDebtModal() {
+  function closeDebtModal() {
     els.modalDeuda.classList.remove('active');
+    state.editingDebtId = null;
     els.formDeuda.reset();
+  }
+
+  function deleteCurrentEditingInv() {
+    if (!state.editingInvId) return;
+    if (!confirm('¿Seguro que deseas eliminar esta inversión?')) return;
+    triggerHaptic();
+    state.inversiones = state.inversiones.filter(i => i.id !== state.editingInvId);
+    saveLocalCache();
+    renderAll();
+    closeInvModal();
+    showToast('Inversión eliminada');
+  }
+
+  function deleteCurrentEditingDebt() {
+    if (!state.editingDebtId) return;
+    if (!confirm('¿Seguro que deseas eliminar esta deuda?')) return;
+    triggerHaptic();
+    state.deudas = state.deudas.filter(d => d.id !== state.editingDebtId);
+    saveLocalCache();
+    renderAll();
+    closeDebtModal();
+    showToast('Deuda eliminada');
   }
 
   function openValUpdateModal(inv) {
@@ -1450,17 +1839,32 @@
     // Modals: Open Add Inv & Debt
     els.btnOpenAddInv.addEventListener('click', () => {
       triggerHaptic();
-      openAddInvModal();
+      openInvModal();
     });
-    els.btnCloseModalInv.addEventListener('click', closeAddInvModal);
+    els.btnCloseModalInv.addEventListener('click', closeInvModal);
+    if (els.btnDeleteInv) els.btnDeleteInv.addEventListener('click', deleteCurrentEditingInv);
 
     els.btnOpenAddDebt.addEventListener('click', () => {
       triggerHaptic();
-      openAddDebtModal();
+      openDebtModal();
     });
-    els.btnCloseModalDebt.addEventListener('click', closeAddDebtModal);
+    els.btnCloseModalDebt.addEventListener('click', closeDebtModal);
+    if (els.btnDeleteDebt) els.btnDeleteDebt.addEventListener('click', deleteCurrentEditingDebt);
 
-    // Save Investment Form
+    // Period selector in Analytics
+    if (els.analyticsPeriodControl) {
+      els.analyticsPeriodControl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.period-btn');
+        if (!btn) return;
+        triggerHaptic();
+        els.analyticsPeriodControl.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.analyticsPeriod = btn.dataset.period || 'month';
+        renderAnalyticsView();
+      });
+    }
+
+    // Save Investment Form (Create or Edit)
     els.formInversion.addEventListener('submit', e => {
       e.preventDefault();
       const nombre = document.getElementById('inv-nombre').value.trim();
@@ -1476,26 +1880,43 @@
         return;
       }
 
-      const newInv = {
-        id: `inv-${Date.now()}`,
-        nombre,
-        tipo,
-        institucion,
-        montoInvertido: monto,
-        valorActual,
-        tasaEA: tasa,
-        fechaVencimiento: vencimiento,
-        moneda: 'COP'
-      };
+      if (state.editingInvId) {
+        const idx = state.inversiones.findIndex(i => i.id === state.editingInvId);
+        if (idx !== -1) {
+          state.inversiones[idx] = {
+            ...state.inversiones[idx],
+            nombre,
+            tipo,
+            institucion,
+            montoInvertido: monto,
+            valorActual,
+            tasaEA: tasa,
+            fechaVencimiento: vencimiento
+          };
+        }
+        showToast('Inversión actualizada ✓');
+      } else {
+        const newInv = {
+          id: `inv-${Date.now()}`,
+          nombre,
+          tipo,
+          institucion,
+          montoInvertido: monto,
+          valorActual,
+          tasaEA: tasa,
+          fechaVencimiento: vencimiento,
+          moneda: 'COP'
+        };
+        state.inversiones.unshift(newInv);
+        showToast('Inversión agregada con éxito ✓');
+      }
 
-      state.inversiones.unshift(newInv);
       saveLocalCache();
       renderAll();
-      closeAddInvModal();
-      showToast('Inversión agregada con éxito ✓');
+      closeInvModal();
     });
 
-    // Save Debt Form
+    // Save Debt Form (Create or Edit)
     els.formDeuda.addEventListener('submit', e => {
       e.preventDefault();
       const nombre = document.getElementById('debt-nombre').value.trim();
@@ -1513,25 +1934,44 @@
         return;
       }
 
-      const newDebt = {
-        id: `deb-${Date.now()}`,
-        nombre,
-        tipo,
-        entidad,
-        saldoPendiente: saldo,
-        cupoTotal: cupo,
-        tasaEA: tasa,
-        cuotaMensual: cuota,
-        diaCorte,
-        diaPago,
-        estado: 'Activa'
-      };
+      if (state.editingDebtId) {
+        const idx = state.deudas.findIndex(d => d.id === state.editingDebtId);
+        if (idx !== -1) {
+          state.deudas[idx] = {
+            ...state.deudas[idx],
+            nombre,
+            tipo,
+            entidad,
+            saldoPendiente: saldo,
+            cupoTotal: cupo,
+            tasaEA: tasa,
+            cuotaMensual: cuota,
+            diaCorte,
+            diaPago
+          };
+        }
+        showToast('Deuda actualizada ✓');
+      } else {
+        const newDebt = {
+          id: `deb-${Date.now()}`,
+          nombre,
+          tipo,
+          entidad,
+          saldoPendiente: saldo,
+          cupoTotal: cupo,
+          tasaEA: tasa,
+          cuotaMensual: cuota,
+          diaCorte,
+          diaPago,
+          estado: 'Activa'
+        };
+        state.deudas.unshift(newDebt);
+        showToast('Deuda agregada con éxito ✓');
+      }
 
-      state.deudas.unshift(newDebt);
       saveLocalCache();
       renderAll();
-      closeAddDebtModal();
-      showToast('Deuda agregada con éxito ✓');
+      closeDebtModal();
     });
 
     // Micro-Modal: Actualizar Saldo Inversión

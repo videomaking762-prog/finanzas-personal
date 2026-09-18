@@ -465,17 +465,149 @@
 
     <!-- TAB 5: GRÁFICAS Y ANÁLISIS -->
     <section id="tab-graficas" class="tab-view">
-      <div class="ios-card">
-        <h2 class="card-title">Distribución por categoría</h2>
+      <!-- Selector de Período Temporal (iOS Segmented Control) -->
+      <div class="analytics-period-bar">
+        <div class="period-segmented-control" id="analytics-period-control">
+          <button type="button" class="period-btn active" data-period="month">Este mes</button>
+          <button type="button" class="period-btn" data-period="quarter">3 meses</button>
+          <button type="button" class="period-btn" data-period="year">Todo el año</button>
+        </div>
+      </div>
+
+      <!-- Tarjetas KPI de Rendimiento y Hábitos -->
+      <div class="analytics-kpi-grid">
+        <div class="ios-card kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-icon">🎯</span>
+            <span class="kpi-title">Tasa de ahorro</span>
+          </div>
+          <div class="kpi-main-val" id="kpi-savings-rate">0%</div>
+          <div class="kpi-subtext">
+            <span class="tag-badge" id="kpi-savings-badge">Sin datos</span>
+          </div>
+        </div>
+
+        <div class="ios-card kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-icon">📅</span>
+            <span class="kpi-title">Promedio diario</span>
+          </div>
+          <div class="kpi-main-val" id="kpi-daily-avg">$0</div>
+          <div class="kpi-subtext" id="kpi-daily-sub">Gasto por día</div>
+        </div>
+
+        <div class="ios-card kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-icon">🔥</span>
+            <span class="kpi-title">Día de más gasto</span>
+          </div>
+          <div class="kpi-main-val" id="kpi-peak-day">-</div>
+          <div class="kpi-subtext" id="kpi-peak-day-amount">$0 gastados</div>
+        </div>
+
+        <div class="ios-card kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-icon">⚖️</span>
+            <span class="kpi-title">Balance período</span>
+          </div>
+          <div class="kpi-main-val" id="kpi-period-balance">$0</div>
+          <div class="kpi-subtext" id="kpi-period-balance-sub">Ingresos vs Gastos</div>
+        </div>
+      </div>
+
+      <!-- Gráfico de Evolución Temporal (Barras Interactivas) -->
+      <div class="ios-card section-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Evolución de gastos</h2>
+            <p class="card-desc" id="timeline-chart-subtitle">Histórico diario de desembolsos</p>
+          </div>
+          <span class="tag-badge" id="timeline-avg-badge">Prom: $0/d</span>
+        </div>
+        <div class="timeline-chart-wrapper">
+          <div class="timeline-bars-scroll" id="timeline-bars-container">
+            <!-- Dynamic bars inserted here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Donut Interactivo por Categoría -->
+      <div class="ios-card section-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Distribución por categoría</h2>
+            <p class="card-desc">Toca un segmento o chip para inspeccionar</p>
+          </div>
+        </div>
         <div class="chart-big-wrapper">
-          <svg id="chart-analytics-donut" viewBox="0 0 240 240" class="donut-svg-big"></svg>
+          <div class="donut-container-interactive">
+            <svg id="chart-analytics-donut" viewBox="0 0 240 240" class="donut-svg-big"></svg>
+            <div class="donut-center-overlay" id="analytics-donut-center">
+              <span class="donut-center-label" id="donut-center-category-label">Total Gastos</span>
+              <span class="donut-center-val" id="donut-center-category-val">$0</span>
+              <span class="donut-center-sub" id="donut-center-category-sub">100%</span>
+            </div>
+          </div>
         </div>
         <div class="analytics-breakdown" id="analytics-categories-list"></div>
       </div>
 
+      <!-- Gastos por Medio de Pago -->
       <div class="ios-card section-card">
-        <h2 class="card-title">Gastos por medio de pago</h2>
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Gastos por medio de pago</h2>
+            <p class="card-desc">Cómo financias tus movimientos</p>
+          </div>
+        </div>
         <div class="bars-chart-container" id="analytics-payments-bars"></div>
+      </div>
+
+      <!-- Estructura Patrimonial: Activos vs Pasivos -->
+      <div class="ios-card section-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Estructura patrimonial</h2>
+            <p class="card-desc">Activos (Inversiones) vs Pasivos (Deudas)</p>
+          </div>
+          <span class="tag-badge" id="net-worth-badge">Solvente</span>
+        </div>
+        <div class="net-worth-content">
+          <div class="net-worth-kpi-row">
+            <div class="nw-item">
+              <span class="nw-label">Activos Totales</span>
+              <span class="nw-val text-green" id="nw-total-assets">$0</span>
+            </div>
+            <div class="nw-item nw-center">
+              <span class="nw-label">Patrimonio Neto</span>
+              <span class="nw-val nw-highlight" id="nw-net-worth">$0</span>
+            </div>
+            <div class="nw-item nw-right">
+              <span class="nw-label">Pasivos Totales</span>
+              <span class="nw-val text-danger" id="nw-total-liabilities">$0</span>
+            </div>
+          </div>
+          <div class="nw-dual-bar-container">
+            <div class="nw-dual-bar">
+              <div class="nw-bar-asset" id="nw-bar-asset" style="width: 50%;"></div>
+              <div class="nw-bar-debt" id="nw-bar-debt" style="width: 50%;"></div>
+            </div>
+          </div>
+          <div class="nw-ratio-footer" id="nw-ratio-text">Ratio de apalancamiento: 0%</div>
+        </div>
+      </div>
+
+      <!-- Top 5 Mayores Gastos -->
+      <div class="ios-card section-card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Top 5 mayores gastos</h2>
+            <p class="card-desc">Los consumos más altos del período</p>
+          </div>
+        </div>
+        <div class="top-expenses-list" id="analytics-top-expenses">
+          <div class="list-placeholder">No hay gastos en este período.</div>
+        </div>
       </div>
     </section>
 
@@ -573,7 +705,11 @@
           </div>
           <div class="form-submit-container">
             <button type="submit" class="btn-save-record" id="btn-save-inv">
-              <span class="btn-text">Guardar inversión</span>
+              <span class="btn-text" id="btn-save-inv-text">Guardar inversión</span>
+            </button>
+            <button type="button" class="btn-delete-record modal-delete-btn" id="btn-delete-inv" style="display: none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+              <span>Eliminar inversión</span>
             </button>
           </div>
         </form>
@@ -637,7 +773,11 @@
           </div>
           <div class="form-submit-container">
             <button type="submit" class="btn-save-record" id="btn-save-debt">
-              <span class="btn-text">Guardar deuda</span>
+              <span class="btn-text" id="btn-save-debt-text">Guardar deuda</span>
+            </button>
+            <button type="button" class="btn-delete-record modal-delete-btn" id="btn-delete-debt" style="display: none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>
+              <span>Eliminar deuda</span>
             </button>
           </div>
         </form>
