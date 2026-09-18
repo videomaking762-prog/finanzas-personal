@@ -440,9 +440,33 @@
         state.gastos = data.gastos;
         if (data.resumen) {
           state.resumen = data.resumen;
-        } else {
-          recalculateLocalResumen();
         }
+        recalculateLocalResumen();
+
+        // Sincronizar Inversiones desde Google Sheets
+        if (Array.isArray(data.inversiones)) {
+          if (data.inversiones.length > 0) {
+            state.inversiones = data.inversiones;
+          } else if (state.inversiones && state.inversiones.length > 0) {
+            // Migración inicial: subir registros locales existentes al nuevo Sheet de Inversiones
+            state.inversiones.forEach(inv => {
+              apiRequest({ action: 'saveInversion', ...inv }).catch(err => console.warn('Error migrando inversión a Sheets:', err));
+            });
+          }
+        }
+
+        // Sincronizar Deudas desde Google Sheets
+        if (Array.isArray(data.deudas)) {
+          if (data.deudas.length > 0) {
+            state.deudas = data.deudas;
+          } else if (state.deudas && state.deudas.length > 0) {
+            // Migración inicial: subir registros locales existentes al nuevo Sheet de Deudas
+            state.deudas.forEach(deb => {
+              apiRequest({ action: 'saveDeuda', ...deb }).catch(err => console.warn('Error migrando deuda a Sheets:', err));
+            });
+          }
+        }
+
         saveLocalCache();
         renderAll();
         if (showFeedback) showToast('Sincronizado con Google Sheets ✓');
@@ -1452,6 +1476,8 @@
         || state.deudas.find(d => item.concepto.toLowerCase().includes(d.nombre.toLowerCase()));
       if (linkedDebt) {
         linkedDebt.saldoPendiente = (Number(linkedDebt.saldoPendiente) || 0) + (Number(item.valor) || 0);
+        linkedDebt.estado = 'Activa';
+        apiRequest({ action: 'saveDeuda', ...linkedDebt }).catch(e => console.warn('Error actualizando deuda en backend:', e));
       }
     }
     recalculateLocalResumen();
@@ -1539,26 +1565,40 @@
     els.formDeuda.reset();
   }
 
-  function deleteCurrentEditingInv() {
+  async function deleteCurrentEditingInv() {
     if (!state.editingInvId) return;
     if (!confirm('¿Seguro que deseas eliminar esta inversión?')) return;
     triggerHaptic();
-    state.inversiones = state.inversiones.filter(i => i.id !== state.editingInvId);
+    const targetId = state.editingInvId;
+    state.inversiones = state.inversiones.filter(i => i.id !== targetId);
     saveLocalCache();
     renderAll();
     closeInvModal();
-    showToast('Inversión eliminada');
+    showToast('Inversión eliminada ✓');
+
+    try {
+      await apiRequest({ action: 'deleteInversion', id: targetId });
+    } catch (e) {
+      console.warn('Inversión eliminada en local (se sincronizará al conectar):', e);
+    }
   }
 
-  function deleteCurrentEditingDebt() {
+  async function deleteCurrentEditingDebt() {
     if (!state.editingDebtId) return;
     if (!confirm('¿Seguro que deseas eliminar esta deuda?')) return;
     triggerHaptic();
-    state.deudas = state.deudas.filter(d => d.id !== state.editingDebtId);
+    const targetId = state.editingDebtId;
+    state.deudas = state.deudas.filter(d => d.id !== targetId);
     saveLocalCache();
     renderAll();
     closeDebtModal();
-    showToast('Deuda eliminada');
+    showToast('Deuda eliminada ✓');
+
+    try {
+      await apiRequest({ action: 'deleteDeuda', id: targetId });
+    } catch (e) {
+      console.warn('Deuda eliminada en local (se sincronizará al conectar):', e);
+    }
   }
 
   function openValUpdateModal(inv) {
@@ -2105,7 +2145,8 @@
       cuenta: selectedDebt ? selectedDebt.nombre : (state.formData.cuenta || 'Otra'),
       nota: els.formNote.value.trim(),
       tipo: state.formData.tipo,
-      moneda: 'COP'
+      moneda: 'COP',
+      debtId: selectedDebt ? selectedDebt.id : null
     };
 
     // Optimistic addition
@@ -2396,7 +2437,7 @@
     }
 
     // Save Investment Form (Create or Edit)
-    els.formInversion.addEventListener('submit', e => {
+    els.formInversion.addEventListener('submit', async e => {
       e.preventDefault();
       const nombre = document.getElementById('inv-nombre').value.trim();
       const tipo = document.getElementById('inv-tipo').value;
@@ -2411,6 +2452,7 @@
         return;
       }
 
+      let invRecord = null;
       if (state.editingInvId) {
         const idx = state.inversiones.findIndex(i => i.id === state.editingInvId);
         if (idx !== -1) {
@@ -2424,6 +2466,7 @@
             tasaEA: tasa,
             fechaVencimiento: vencimiento
           };
+          invRecord = state.inversiones[idx];
         }
         showToast('Inversión actualizada ✓');
       } else {
@@ -2439,16 +2482,25 @@
           moneda: 'COP'
         };
         state.inversiones.unshift(newInv);
+        invRecord = newInv;
         showToast('Inversión agregada con éxito ✓');
       }
 
       saveLocalCache();
       renderAll();
       closeInvModal();
+
+      if (invRecord) {
+        try {
+          await apiRequest({ action: 'saveInversion', ...invRecord });
+        } catch (err) {
+          console.warn('Inversión guardada en local (se sincronizará al conectar):', err);
+        }
+      }
     });
 
     // Save Debt Form (Create or Edit)
-    els.formDeuda.addEventListener('submit', e => {
+    els.formDeuda.addEventListener('submit', async e => {
       e.preventDefault();
       const nombre = document.getElementById('debt-nombre').value.trim();
       const tipo = document.getElementById('debt-tipo').value;
@@ -2465,6 +2517,7 @@
         return;
       }
 
+      let debtRecord = null;
       if (state.editingDebtId) {
         const idx = state.deudas.findIndex(d => d.id === state.editingDebtId);
         if (idx !== -1) {
@@ -2478,8 +2531,10 @@
             tasaEA: tasa,
             cuotaMensual: cuota,
             diaCorte,
-            diaPago
+            diaPago,
+            estado: saldo <= 0 ? 'Pagada' : 'Activa'
           };
+          debtRecord = state.deudas[idx];
         }
         showToast('Deuda actualizada ✓');
       } else {
@@ -2494,15 +2549,24 @@
           cuotaMensual: cuota,
           diaCorte,
           diaPago,
-          estado: 'Activa'
+          estado: saldo <= 0 ? 'Pagada' : 'Activa'
         };
         state.deudas.unshift(newDebt);
+        debtRecord = newDebt;
         showToast('Deuda agregada con éxito ✓');
       }
 
       saveLocalCache();
       renderAll();
       closeDebtModal();
+
+      if (debtRecord) {
+        try {
+          await apiRequest({ action: 'saveDeuda', ...debtRecord });
+        } catch (err) {
+          console.warn('Deuda guardada en local (se sincronizará al conectar):', err);
+        }
+      }
     });
 
     // Micro-Modal: Actualizar Saldo Inversión
@@ -2515,7 +2579,7 @@
       e.target.value = parseInt(digits, 10).toLocaleString('es-CO');
     });
 
-    els.btnSaveValUpdate.addEventListener('click', () => {
+    els.btnSaveValUpdate.addEventListener('click', async () => {
       if (!state.selectedInvForVal) return;
       const digits = els.valNewAmount.value.replace(/\D/g, '');
       const newVal = parseInt(digits, 10);
@@ -2524,10 +2588,17 @@
         return;
       }
       state.selectedInvForVal.valorActual = newVal;
+      const invToUpdate = { ...state.selectedInvForVal };
       saveLocalCache();
       renderAll();
       closeValUpdateModal();
       showToast('Valoración actualizada ✓');
+
+      try {
+        await apiRequest({ action: 'saveInversion', ...invToUpdate });
+      } catch (err) {
+        console.warn('Valoración guardada en local (se sincronizará al conectar):', err);
+      }
     });
     els.btnCloseModalVal.addEventListener('click', closeValUpdateModal);
 
