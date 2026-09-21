@@ -26,8 +26,8 @@
       <h1 id="auth-title">Mis Finanzas</h1>
       <p class="auth-copy">Ingresa tu PIN para conectar con Google Sheets.</p>
       <form id="auth-form" novalidate>
-        <label for="auth-pin">PIN de 8 dígitos</label>
-        <input id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" enterkeyhint="go" required>
+        <label for="auth-pin">PIN de 10 dígitos</label>
+        <input id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" autocomplete="one-time-code" enterkeyhint="go" required>
         <p id="auth-error" class="auth-error" role="alert" aria-live="polite"></p>
         <button type="submit" class="auth-submit">Desbloquear</button>
       </form>
@@ -1059,6 +1059,6 @@
   </nav>
 
   <!-- Core App Logic -->
-  <script src="js/app.js?v=2.2"></script>
+  <script src="js/app.js?v=2.3"></script>
 </body>
 </html>

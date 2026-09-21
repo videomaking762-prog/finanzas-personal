@@ -2331,8 +2331,8 @@
     els.authForm.addEventListener('submit', async event => {
       event.preventDefault();
       const pin = els.authPin.value.replace(/\D/g, '');
-      if (pin.length !== 8) {
-        els.authError.textContent = 'Ingresa los 8 dígitos.';
+      if (pin.length !== 10) {
+        els.authError.textContent = 'Ingresa los 10 dígitos.';
         return;
       }
 
