@@ -2812,3 +2812,15 @@ body.privacy-active .pat-badge {
   border-radius: var(--radius-pill);
   transition: width 0.4s ease;
 }
+
+.monthly-budget-card .card-header { align-items: center; }
+.monthly-budget-summary, .monthly-budget-list { display: grid; gap: 12px; }
+.monthly-budget-row { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--separator-subtle); }
+.monthly-budget-row strong { color: var(--text-primary); font-size: 0.92rem; }
+.monthly-budget-row small { color: var(--text-secondary); line-height: 1.4; }
+.monthly-budget-track { height: 7px; border-radius: 99px; background: var(--bg-secondary); overflow: hidden; }
+.monthly-budget-fill { height: 100%; background: var(--ios-green); border-radius: inherit; }
+.monthly-budget-fill.over { background: var(--ios-red); }
+.monthly-budget-body { display: grid; gap: 12px; padding: 20px 22px 40px; overflow-y: auto; }
+.monthly-budget-body .field-label { margin-top: 8px; }
+.monthly-budget-list .card-link-btn { justify-self: start; }

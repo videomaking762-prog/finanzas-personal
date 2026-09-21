@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/style.css?v=2.1">
+  <link rel="stylesheet" href="css/style.css?v=2.2">
 
   <!-- Apple Touch Icon SVG data URL fallback -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='128' fill='%23177A5B'/><path d='M256 120v272M180 200h152c22 0 40 18 40 40s-18 40-40 40H180c-22 0-40 18-40 40s18 40 40 40h152' stroke='white' stroke-width='40' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
@@ -158,6 +158,14 @@
         </div>
       </div>
 
+      <!-- Monthly Budget Card -->
+      <div class='ios-card monthly-budget-card'>
+        <div class='card-header'>
+          <h2 class='card-title'>Presupuestos mensuales</h2>
+          <button type='button' class='card-link-btn' id='btn-open-monthly-budget'>Gestionar</button>
+        </div>
+        <div id='monthly-budget-summary'></div>
+      </div>
       <!-- Mini Chart Card -->
       <div class="ios-card">
         <div class="card-header">
@@ -838,6 +846,26 @@
     </div>
   </div>
 
+  <div id='modal-monthly-budget' class='ios-modal-backdrop' aria-hidden='true'>
+    <div class='ios-modal-sheet modal-sheet-full'>
+      <div class='sheet-drag-handle'></div>
+      <div class='sheet-header'>
+        <div><h3 class='sheet-title'>Presupuesto mensual</h3><p class='sheet-desc'>Topes por categoría contra gastos reales</p></div>
+        <button type='button' class='sheet-close-btn' id='btn-close-monthly-budget'>Listo</button>
+      </div>
+      <div class='monthly-budget-body'>
+        <label for='monthly-budget-month' class='field-label'>Mes</label>
+        <input type='month' id='monthly-budget-month' class='field-input'>
+        <div id='monthly-budget-list' class='monthly-budget-list'></div>
+        <label for='monthly-budget-category' class='field-label'>Categoría</label>
+        <select id='monthly-budget-category' class='field-input'></select>
+        <label for='monthly-budget-amount' class='field-label'>Tope mensual (COP)</label>
+        <input type='text' id='monthly-budget-amount' class='field-input' inputmode='numeric' placeholder='Ej. 300.000'>
+        <button type='button' class='btn-save-record' id='btn-save-monthly-budget'>Guardar presupuesto</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Gestor y Distribuidor de Dinero (Borrador vs Comparativa) -->
   <div id="modal-presupuesto" class="ios-modal-backdrop" aria-hidden="true">
     <div class="ios-modal-sheet modal-sheet-full">
@@ -1031,6 +1059,6 @@
   </nav>
 
   <!-- Core App Logic -->
-  <script src="js/app.js?v=2.1"></script>
+  <script src="js/app.js?v=2.2"></script>
 </body>
 </html>

@@ -52,6 +52,8 @@
     gastos: [],
     inversiones: JSON.parse(localStorage.getItem('finanzas_inversiones') || '[]') || [],
     deudas: JSON.parse(localStorage.getItem('finanzas_deudas') || '[]') || [],
+    presupuestosMensuales: [],
+    presupuestoMesSeleccionado: new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit' }).format(new Date()),
     editingInvId: null,
     editingDebtId: null,
     analyticsPeriod: 'month',
@@ -118,6 +120,15 @@
     snapDebtCount: document.getElementById('snap-debt-count'),
     snapDebtSub: document.getElementById('snap-debt-sub'),
     cardOpenPlanner: document.getElementById('card-open-planner'),
+    btnOpenMonthlyBudget: document.getElementById('btn-open-monthly-budget'),
+    monthlyBudgetSummary: document.getElementById('monthly-budget-summary'),
+    modalMonthlyBudget: document.getElementById('modal-monthly-budget'),
+    btnCloseMonthlyBudget: document.getElementById('btn-close-monthly-budget'),
+    monthlyBudgetMonth: document.getElementById('monthly-budget-month'),
+    monthlyBudgetList: document.getElementById('monthly-budget-list'),
+    monthlyBudgetCategory: document.getElementById('monthly-budget-category'),
+    monthlyBudgetAmount: document.getElementById('monthly-budget-amount'),
+    btnSaveMonthlyBudget: document.getElementById('btn-save-monthly-budget'),
     plannerStatusBadge: document.getElementById('planner-status-badge'),
     plannerPreviewTotal: document.getElementById('planner-preview-total'),
     plannerPreviewAssigned: document.getElementById('planner-preview-assigned'),
@@ -442,6 +453,9 @@
           state.resumen = data.resumen;
         }
         recalculateLocalResumen();
+        if (Array.isArray(data.presupuestosMensuales)) {
+          state.presupuestosMensuales = data.presupuestosMensuales;
+        }
 
         // Sincronizar Inversiones desde Google Sheets
         if (Array.isArray(data.inversiones)) {
@@ -574,6 +588,7 @@
     renderPatrimonioView();
     renderAnalyticsView();
     renderPlannerPreviewCard();
+    renderMonthlyBudget();
   }
 
   function renderHomeView() {
@@ -1618,6 +1633,127 @@
   // Money Allocator & Budget Planner (Borrador vs Comparativa de Fin de Mes)
   // =========================================================================
 
+  function budgetSpent(mes, categoria) {
+    return state.gastos.reduce((total, tx) => {
+      if (!String(tx.fecha || '').startsWith(mes)) return total;
+      if (tx.tipo !== 'Gasto' && tx.tipo !== 'Pago Deuda' && tx.tipo) return total;
+      return (tx.categoria || 'Otros') === categoria ? total + (Number(tx.valor) || 0) : total;
+    }, 0);
+  }
+
+  function budgetRows(mes) {
+    return state.presupuestosMensuales.filter(item => item.mes === mes)
+      .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'));
+  }
+
+  function budgetLine(item) {
+    const gastado = budgetSpent(item.mes, item.categoria);
+    const disponible = Number(item.monto) - gastado;
+    const row = document.createElement('div');
+    row.className = 'monthly-budget-row';
+    const title = document.createElement('strong');
+    title.textContent = item.categoria;
+    const amounts = document.createElement('small');
+    amounts.textContent = `Gastado ${formatCOP(gastado)} de ${formatCOP(item.monto)} · ${disponible >= 0 ? 'Quedan' : 'Excedido'} ${formatCOP(Math.abs(disponible))}`;
+    const track = document.createElement('div');
+    track.className = 'monthly-budget-track';
+    const fill = document.createElement('div');
+    fill.className = 'monthly-budget-fill';
+    fill.style.width = `${Math.min(100, Math.round(gastado / Number(item.monto) * 100))}%`;
+    if (disponible < 0) fill.classList.add('over');
+    track.appendChild(fill);
+    row.append(title, amounts, track);
+    return row;
+  }
+
+  function renderMonthlyBudget() {
+    const mes = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit' }).format(new Date());
+    if (!els.monthlyBudgetSummary) return;
+    els.monthlyBudgetSummary.replaceChildren();
+    const rows = budgetRows(mes);
+    if (!rows.length) {
+      els.monthlyBudgetSummary.textContent = 'Sin topes este mes. Pulsa Gestionar para crear uno.';
+    } else {
+      rows.forEach(item => els.monthlyBudgetSummary.appendChild(budgetLine(item)));
+    }
+    if (els.modalMonthlyBudget && els.modalMonthlyBudget.classList.contains('active')) renderMonthlyBudgetEditor();
+  }
+
+  function renderMonthlyBudgetEditor() {
+    const mes = state.presupuestoMesSeleccionado;
+    els.monthlyBudgetMonth.value = mes;
+    els.monthlyBudgetList.replaceChildren();
+    const rows = budgetRows(mes);
+    if (!rows.length) els.monthlyBudgetList.textContent = 'Todavía no hay topes para este mes.';
+    rows.forEach(item => {
+      const row = budgetLine(item);
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'card-link-btn';
+      edit.textContent = 'Editar';
+      edit.addEventListener('click', () => {
+        els.monthlyBudgetCategory.value = item.categoria;
+        els.monthlyBudgetAmount.value = Number(item.monto).toLocaleString('es-CO');
+      });
+      row.appendChild(edit);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'card-link-btn';
+      remove.textContent = 'Eliminar';
+      remove.addEventListener('click', async () => {
+        if (!confirm(`¿Eliminar el tope de ${item.categoria} para ${mes}?`)) return;
+        remove.disabled = true;
+        try {
+          const result = await apiRequest({ action: 'deletePresupuestoMensual', mes, categoria: item.categoria });
+          if (!result.ok) throw new Error(result.error || 'No se pudo eliminar');
+          state.presupuestosMensuales = state.presupuestosMensuales.filter(x => x !== item);
+          renderMonthlyBudget();
+          showToast('Presupuesto eliminado del Sheet');
+        } catch (_) {
+          remove.disabled = false;
+          showToast('No se eliminó en Sheets');
+        }
+      });
+      row.appendChild(remove);
+      els.monthlyBudgetList.appendChild(row);
+    });
+  }
+
+  function openMonthlyBudget() {
+    triggerHaptic();
+    els.monthlyBudgetCategory.replaceChildren();
+    Object.keys(CATEGORY_META).filter(cat => cat !== 'Inversión').forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat;
+      option.textContent = cat;
+      els.monthlyBudgetCategory.appendChild(option);
+    });
+    els.modalMonthlyBudget.classList.add('active');
+    renderMonthlyBudgetEditor();
+  }
+
+  async function saveMonthlyBudget() {
+    const mes = state.presupuestoMesSeleccionado;
+    const categoria = els.monthlyBudgetCategory.value;
+    const monto = Number(els.monthlyBudgetAmount.value.replace(/\D/g, ''));
+    if (!monto || monto <= 0) return showToast('Ingresa un tope mayor que cero');
+    els.btnSaveMonthlyBudget.disabled = true;
+    try {
+      const result = await apiRequest({ action: 'savePresupuestoMensual', mes, categoria, monto });
+      if (!result.ok) throw new Error(result.error || 'No se pudo guardar');
+      const existing = state.presupuestosMensuales.find(item => item.mes === mes && item.categoria === categoria);
+      if (existing) existing.monto = monto;
+      else state.presupuestosMensuales.push({ mes, categoria, monto });
+      els.monthlyBudgetAmount.value = '';
+      renderMonthlyBudget();
+      showToast('Presupuesto guardado en Google Sheets ✓');
+    } catch (err) {
+      showToast('No se guardó en Sheets. Inténtalo de nuevo.');
+    } finally {
+      els.btnSaveMonthlyBudget.disabled = false;
+    }
+  }
+
   function renderPlannerPreviewCard() {
     if (!els.cardOpenPlanner) return;
     const base = Number(state.presupuesto.montoBase) || 0;
@@ -2610,6 +2746,22 @@
     els.btnModalDelete.addEventListener('click', deleteSelectedMovement);
 
     // Money Allocator & Budget Planner Events
+    if (els.btnOpenMonthlyBudget) els.btnOpenMonthlyBudget.addEventListener('click', openMonthlyBudget);
+    if (els.btnCloseMonthlyBudget) els.btnCloseMonthlyBudget.addEventListener('click', () => els.modalMonthlyBudget.classList.remove('active'));
+    if (els.modalMonthlyBudget) els.modalMonthlyBudget.addEventListener('click', e => {
+      if (e.target === els.modalMonthlyBudget) els.modalMonthlyBudget.classList.remove('active');
+    });
+    if (els.monthlyBudgetMonth) els.monthlyBudgetMonth.addEventListener('change', e => {
+      if (/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)) {
+        state.presupuestoMesSeleccionado = e.target.value;
+        renderMonthlyBudgetEditor();
+      }
+    });
+    if (els.monthlyBudgetAmount) els.monthlyBudgetAmount.addEventListener('input', e => {
+      const value = Number(e.target.value.replace(/\D/g, ''));
+      e.target.value = value ? value.toLocaleString('es-CO') : '';
+    });
+    if (els.btnSaveMonthlyBudget) els.btnSaveMonthlyBudget.addEventListener('click', saveMonthlyBudget);
     if (els.cardOpenPlanner) {
       els.cardOpenPlanner.addEventListener('click', openPlannerModal);
     }
